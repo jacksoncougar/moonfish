@@ -9,25 +9,6 @@ namespace Moonfish.Core
     public class TagBlockList<TTagBlock> : FixedArray<TTagBlock>, ISerializable, IReferenceable<TagBlock, resource_identifier>
         where TTagBlock : TagBlock, ISerializable, IReferenceable<TagBlock, resource_identifier>, new()
     {
-        //byte[] IField.GetFieldData()
-        //{
-        //    byte[] data_ = new byte[8];
-        //    BitConverter.GetBytes(this.Count).CopyTo(data_, 0);
-        //    BitConverter.GetBytes(first_element_address_).CopyTo(data_, 4);
-        //    return data_;
-        //}
-
-        //int IField.SizeOfField
-        //{
-        //    get { return 8; }
-        //}
-
-        //void IField.SetFieldData(byte[] field_data, IStructure caller)
-        //{
-        //    count_ = BitConverter.ToInt32(field_data, 0);
-        //    first_element_address_ = BitConverter.ToInt32(field_data, 4);
-        //}
-
         void ISerializable.Deserialize(Stream source_stream)
         {
             for (var i = 0; i < count_; ++i)
@@ -92,27 +73,6 @@ namespace Moonfish.Core
             get { return 8; }
         }
 
-        ////void IField.Initialize(IStructure calling_structure)
-        ////{
-        ////    parent = calling_structure;
-        ////}
-
-        //void IReferenceable<string, string_id>.CopyReferences(IReferenceList<string, string_id> source_graph, IReferenceList<string, string_id> destination_graph)
-        //{
-        //    foreach (var tag_block in this)
-        //    {
-        //        tag_block.CopyReferences(source_graph, destination_graph);
-        //    }
-        //}
-
-        //void IReferenceable<tag_info, tag_id>.CopyReferences(IReferenceList<tag_info, tag_id> source_graph, IReferenceList<tag_info, tag_id> destination_graph)
-        //{
-        //    foreach (var tag_block in this)
-        //    {
-        //        tag_block.CopyReferences(source_graph, destination_graph);
-        //    }
-        //}
-
         void IReferenceable<TagBlock, resource_identifier>.CopyReferences(IReferenceList<TagBlock, resource_identifier> source_graph, IReferenceList<TagBlock, resource_identifier> destination_graph)
         {
             foreach (var tag_block in this)
@@ -132,67 +92,7 @@ namespace Moonfish.Core
                 tag_block.CreateReferences(destination_graph);
             }
         }
-
-        //void IReferenceGraphable.CreateReferences(IReferenceList<IAddressable, int> destination_graph)
-        //{
-        //    foreach (var tag_block in this)
-        //    {
-        //        tag_block.CreateReferences(destination_graph);
-        //    }
-        //}
-
-        //graph_index IReferenceGraphable.CreateReferenceLinks(ref List<graph_index> indices, graph_index parent_index)
-        //{
-        //    parent_index.first_child = this[0].tagblock_id;
-        //    this.first_element_address_ = this[0].tagblock_id;
-        //    this.parent.SetField(this);
-        //    graph_index next_index = parent_index;
-        //    next_index.parent = parent_index.index;
-        //    for (var i = 0; i < this.Count; ++i)
-        //    {
-        //        if (i == 0) next_index.left_sibling = graph_index.null_index;
-        //        else next_index.left_sibling = this[i - 1].tagblock_id;
-        //        if (i + 1 == this.Count) next_index.right_sibling = graph_index.null_index;
-        //        else next_index.right_sibling = this[i + 1].tagblock_id;
-        //        indices.Add(this[i].CreateReferenceLinks(ref indices, next_index));
-        //    }
-        //    return parent_index;
-        //}
-
-        //void IReferenceGraphable.RelinkReferences(IReferenceList<IAddressable, int> destination_graph, Dictionary<int, int> token_list)
-        //{
-        //    foreach (var tag_block in this)
-        //    {
-        //        tag_block.CreateReferences(destination_graph);
-        //    }
-        //}
-
-        //void IReferenceable<string, string_id>.CreateReferences(IReferenceList<string, string_id> destination_graph)
-        //{
-        //    throw new NotImplementedException();
-        //}
-
-        //void IReferenceable<tag_info, tag_id>.CreateReferences(IReferenceList<tag_info, tag_id> destination_graph)
-        //{
-        //    throw new NotImplementedException();
-        //}
-
-
-        //void IReferenceable<ByteArray, resource_identifier>.CopyReferences(IReferenceList<ByteArray, resource_identifier> source_graph, IReferenceList<ByteArray, resource_identifier> destination_graph)
-        //{
-        //    throw new NotImplementedException();
-        //}
-
-        //void IReferenceable<ByteArray, resource_identifier>.CreateReferences(IReferenceList<ByteArray, resource_identifier> destination_graph)
-        //{
-        //    foreach (var tag_block in this)
-        //    {
-        //        tag_block.CreateReferences(destination_graph);
-        //    }
-        //}
     }
-
-    //id_tag//id_block//address
 
     public abstract class TagBlock : ISerializable, IStructure, IEnumerable<TagBlockField>, IReference<resource_identifier>,
         IReferenceable<string, string_id>, IReferenceable<tag_info, tag_id>, IReferenceable<TagBlock, resource_identifier>, IReferenceable<ByteArray, resource_identifier>
@@ -381,11 +281,6 @@ namespace Moonfish.Core
                             interface__.CopyReferences(source_graph, destination_graph);
                         }
                     }
-                //IReferenceable<TObject, TToken> referenceable_string_interface = field.Object as IReferenceable<TObject, TToken>;
-                //if (referenceable_string_interface != null)
-                //{
-                //    referenceable_string_interface.CopyReferences(source_graph, destination_graph);
-                //}
             }
         }
 
@@ -419,71 +314,7 @@ namespace Moonfish.Core
         {
             get { return this.tagblock_id == -1; }
         }
-
-
-        //void IReferenceGraphable.CreateReferences(IReferenceList<IAddressable, int> destination_graph)
-        //{
-        //    IAddressable tag_block_reference = this as IAddressable;
-        //    if (tag_block_reference != null)
-        //    {
-        //        TagBlock value = this;
-        //        int token = this.tagblock_id;
-        //        token = destination_graph.Link(token, value);
-        //        this.tagblock_id = token;
-        //    }
-        //    foreach (var field in fixed_fields)
-        //    {
-        //        var referenceable_string_interface = field.Object as IReferenceGraphable;
-        //        if (referenceable_string_interface != null)
-        //        {
-        //            referenceable_string_interface.CreateReferences(destination_graph);
-        //        }
-        //    }
-        //}
-
-        //graph_index IReferenceGraphable.CreateReferenceLinks(ref List<graph_index> indices, graph_index parent_index)
-        //{
-        //    //parent_index.first_child = this.tagblock_id;
-        //    parent_index.index = this.tagblock_id;
-        //    parent_index.first_child = graph_index.null_index;
-        //    foreach (var field in fixed_fields)
-        //    {
-        //        var referenceable_string_interface = field.Object as IReferenceGraphable;
-        //        if (referenceable_string_interface != null)
-        //        {
-        //            indices.Add(referenceable_string_interface.CreateReferenceLinks(ref indices, parent_index));
-        //        }
-        //    }
-        //    return parent_index;
-        //}
-
-        //void IReferenceGraphable.RelinkReferences(IReferenceList<IAddressable, int/*id*/> destination_graph, Dictionary<int/*offset*/, int/*id*/> token_list)
-        //{
-        //    this.tagblock_id = token_list[this.tagblock_address];
-        //    destination_graph.Link(this.tagblock_id, this);
-
-        //    foreach (var field in fixed_fields)
-        //    {
-        //        var referenceable_string_interface = field.Object as IReferenceGraphable;
-        //        if (referenceable_string_interface != null)
-        //        {
-        //            referenceable_string_interface.RelinkReferences(destination_graph, token_list);
-        //        }
-        //    }
-        //}
-
-
-        //int IAddressable.GetIdentifier()
-        //{
-        //    return tagblock_id;
-        //}
-
-        //int IAddressable.GetAddress()
-        //{
-        //    return tagblock_address;
-        //}
-
-
+        
         void IReferenceable<TagBlock, resource_identifier>.CreateReferences(IReferenceList<TagBlock, resource_identifier> destination_graph)
         {
             this.tagblock_id = destination_graph.Link(new resource_identifier() { Identifier = this.tagblock_id, ResourceType = this.GetType(), Offset = this.tagblock_address }, this).Identifier;
@@ -498,12 +329,10 @@ namespace Moonfish.Core
             }
         }
 
-
         void IReferenceable<tag_info, tag_id>.CreateReferences(IReferenceList<tag_info, tag_id> destination_graph)
         {
             throw new NotImplementedException();
         }
-
 
         void IReferenceable<string, string_id>.CreateReferences(IReferenceList<string, string_id> destination_graph)
         {

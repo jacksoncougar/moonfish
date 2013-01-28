@@ -1,0 +1,272 @@
+﻿using System.Text;
+using System.IO;
+using System;
+using System.Collections.Generic;
+
+namespace Moonfish.Core
+{
+    /// <summary>
+    /// A minimalist class to load essential data which can be used to parse a retail cache map.
+    /// </summary>
+    public class MapStream : FileStream, IReferenceList<string, string_id>, IReferenceList<tag_info, tag_id>
+    {
+        //NAME
+        /// <summary>
+        /// name of this cache (is not used in anything, just compiled into the header)
+        /// </summary>
+        public readonly string MapName;
+        //SCENARIO
+        /// <summary>
+        /// path of the scenario (local directory path storing the resources of this map when decompiled)
+        /// </summary>
+        public readonly string Scenario;
+        //MAGICS
+        /// <summary>
+        /// magic values are used to convert from pre-calculated memory pointers to file-addresses
+        /// </summary>
+        public readonly int PrimaryMagic;
+        public readonly int SecondaryMagic;
+        //HEADER
+        //INDEX
+        //UNICODE
+        //STRINGS
+        public readonly UnicodeValueNamePair[] Unicode;
+        public readonly string[] Paths;
+        public readonly string[] Strings;
+        public readonly tag_info[] Tags;
+
+        public MapStream(string filename)
+            : base(filename, FileMode.Open, FileAccess.Read)
+        {
+            //HEADER
+            BinaryReader binReader = new BinaryReader(this, Encoding.UTF8);
+            this.Seek(16, SeekOrigin.Begin);
+
+            int indexAddress = binReader.ReadInt32();
+            int indexLength = binReader.ReadInt32();
+
+            this.Seek(336, SeekOrigin.Current);
+
+            int stringTableLength = binReader.ReadInt32();
+            this.Seek(4, SeekOrigin.Current);
+            int stringTableAddress = binReader.ReadInt32();
+
+            this.Seek(36, SeekOrigin.Current);
+
+            MapName = binReader.ReadFixedString(32);
+
+            this.Seek(4, SeekOrigin.Current);
+
+            Scenario = binReader.ReadFixedString(256);
+
+            this.Seek(4, SeekOrigin.Current);
+            int pathsCount = binReader.ReadInt32();
+            int pathsTableAddress = binReader.ReadInt32();
+            int pathsTableLength = binReader.ReadInt32();
+
+            this.Seek(pathsTableAddress, SeekOrigin.Begin);
+            Paths = Encoding.UTF8.GetString(binReader.ReadBytes(pathsTableLength - 1)).Split(char.MinValue);
+
+            //STRINGS
+
+            this.Seek(stringTableAddress, SeekOrigin.Begin);
+            Strings = Encoding.UTF8.GetString(binReader.ReadBytes(stringTableLength - 1)).Split(char.MinValue);
+
+
+            //INDEX
+            this.Seek(indexAddress, SeekOrigin.Begin);
+            int tagClassTableVirtualAddress = binReader.ReadInt32();
+            this.Seek(4, SeekOrigin.Current);
+            int tagDatumTableVirtualAddress = binReader.ReadInt32();
+            int tagDatumTableOffset = tagDatumTableVirtualAddress - tagClassTableVirtualAddress;
+            this.Seek(12, SeekOrigin.Current);
+            int tagDatumCount = binReader.ReadInt32();
+
+            this.Seek(4 + tagDatumTableOffset, SeekOrigin.Current);
+            Tags = new tag_info[tagDatumCount];
+            for (int i = 0; i < tagDatumCount; i++)
+            {
+                Tags[i] = new tag_info()
+                {
+                    Type = binReader.ReadTagType(),
+                    Id = binReader.ReadInt32(),
+                    VirtualAddress = binReader.ReadInt32(),
+                    Length = binReader.ReadInt32()
+                };
+            }
+
+            //UNICODE
+            SecondaryMagic = Tags[0].VirtualAddress - (indexAddress + indexLength);
+            this.Seek(Tags[0].VirtualAddress - SecondaryMagic + 400, SeekOrigin.Begin);
+            int unicodeCount = binReader.ReadInt32();
+            int unicodeTableLength = binReader.ReadInt32();
+            int unicodeIndexAddress = binReader.ReadInt32();
+            int unicodeTableAddress = binReader.ReadInt32();
+
+            Unicode = new UnicodeValueNamePair[unicodeCount];
+
+            string_id[] strRefs = new string_id[unicodeCount];
+            int[] strOffsets = new int[unicodeCount];
+
+            this.Seek(unicodeIndexAddress, SeekOrigin.Begin);
+            for (int i = 0; i < unicodeCount; i++)
+            {
+                strRefs[i] = binReader.ReadInt32();
+                strOffsets[i] = binReader.ReadInt32();
+            }
+            for (int i = 0; i < unicodeCount; i++)
+            {
+                this.Seek(unicodeTableAddress + strOffsets[i], SeekOrigin.Begin);
+                StringBuilder unicodeString = new StringBuilder(byte.MaxValue);
+                while (binReader.PeekChar() != char.MinValue)
+                    unicodeString.Append(binReader.ReadChar());
+                Unicode[i] = new UnicodeValueNamePair { Name = strRefs[i], Value = unicodeString.ToString() };
+            }
+        }
+
+        public override long Position
+        {
+            get
+            {
+                return base.Position;
+            }
+            set
+            {
+                // Is this value a memory_pointer? If so we need to convert it to a file_pointer:
+                if (value < 0)
+                {
+                    base.Position = (int)value - SecondaryMagic;
+                    return;
+                }
+                else
+                {
+                    base.Position = (int)value;
+                    return;
+                }
+            }
+        }
+
+        tag_info GetOwner(int memory_address)
+        {
+            foreach (var tag in Tags)
+            {
+                if (memory_address >= tag.VirtualAddress - SecondaryMagic && memory_address < (tag.VirtualAddress - SecondaryMagic) + tag.Length)
+                    return tag;
+            }
+            throw new Exception();
+        }
+
+        public TagBlockWrapper PreProcessTag(tag_info tag)
+        {
+            // Create a new Tagblock instance 
+            TagBlock item = Halo2.CreateInstance(tag.Type);
+            // Set the stream position to this virtual offset;
+            this.Position = tag.VirtualAddress;
+            // Deserialize the tag data
+            var serializeable_interface = (item as ISerializable);
+            serializeable_interface.Deserialize(this, new Segment((int)Position, tag.Length));
+            TagBlockWrapper tag_wrapper = new TagBlockWrapper(tag.Type, tag.Id, item);
+
+            var string_reference_interface = (item as IReferenceable<string, string_id>);
+            string_reference_interface.CopyReferences(this, tag_wrapper);
+
+            var tag_reference_interface = (item as IReferenceable<tag_info, tag_id>);
+            tag_reference_interface.CopyReferences(this, tag_wrapper);
+            {
+                var __interface = (item as IReferenceable<TagBlock, resource_identifier>);
+                __interface.CreateReferences(tag_wrapper.block_graph);
+            }
+            {
+                var __interface = (item as IReferenceable<ByteArray, resource_identifier>);
+                __interface.CreateReferences(tag_wrapper.block_graph);
+            }
+            tag_wrapper.CreateReferenceTable();
+
+
+            //LINK RESOURCES
+            {
+                tag_info? owner;
+                for (int i = 0; i < tag_wrapper.references.Count; ++i)
+                {
+                    if ((owner = GetOwner(tag_wrapper.references[i].TagblockID)).HasValue)
+                    {
+                        tag_wrapper.references[i].Owner = owner.Value.Id;
+                        tag_wrapper.references[i].TagblockID -= owner.Value.VirtualAddress - SecondaryMagic;
+                        {
+                            //Instantiate the tagblock here and return the tagblock_id?
+                            if (tag.Type.ToString() == "shad")
+                            {
+                            }
+                        }
+                    }
+
+                }
+            }
+
+
+            return tag_wrapper;
+        }
+
+        internal void Deserialize()
+        {
+            List<TagBlockWrapper> tags = new List<TagBlockWrapper>(this.Tags.Length);
+            foreach (var tag_item in this.Tags)
+            {
+                tags.Add(PreProcessTag(tag_item));
+            }
+        }
+
+        string IReferenceList<string, string_id>.GetValue(string_id reference)
+        {
+            return Strings[reference.Index];
+        }
+
+        string_id IReferenceList<string, string_id>.Link(string_id reference, string value)
+        {
+            throw new InvalidOperationException();
+        }
+
+        tag_info IReferenceList<tag_info, tag_id>.GetValue(tag_id reference)
+        {
+            return Tags[reference.Index];
+        }
+
+        tag_id IReferenceList<tag_info, tag_id>.Link(tag_id reference, tag_info value)
+        {
+            throw new InvalidOperationException();
+        }
+
+
+        void IReferenceList<string, string_id>.Add(string_id reference, string value)
+        {
+            throw new NotImplementedException();
+        }
+
+
+        void IReferenceList<tag_info, tag_id>.Add(tag_id reference, tag_info value)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+
+    public struct UnicodeValueNamePair
+    {
+        public string_id Name;
+        public string Value;
+
+        public override string ToString()
+        {
+            return string.Format("{0}, {1} : {2}", Name.Index, Name.Length, Value);
+        }
+    }
+
+    public struct tag_info
+    {
+        public tag_class Type;
+        public tag_id Id;
+        public int VirtualAddress;
+        public int Offset;
+        public int Length;
+    }
+}

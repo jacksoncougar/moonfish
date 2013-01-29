@@ -246,6 +246,8 @@ namespace Moonfish.Core
         protected TagBlock(int size, int alignment = DefaultAlignment)
             : this(size, new TagBlockField[0]) { }
 
+        public MemoryStream GetMemory() { return memory_; }
+
         protected TagBlock(int size, TagBlockField[] fields, int alignment = DefaultAlignment)
         {
             // assign size of this tag_block
@@ -354,7 +356,7 @@ namespace Moonfish.Core
                     var nested_tagblock = field.Object as IPointable;
                     if (nested_tagblock != null)
                     {
-                        nested_tagblock.Parse(mem);
+                        nested_tagblock.PointTo(mem);
                     }
                 }
             }

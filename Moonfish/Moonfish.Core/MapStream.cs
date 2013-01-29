@@ -159,7 +159,7 @@ namespace Moonfish.Core
         public void SerializeTag(tag_info meta)
         {
             string name = Paths[meta.Id.Index];
-            TagBlock block = Halo2.CreateInstance(meta.Type); 
+            TagBlock block = Halo2.CreateInstance(meta.Type);
             (block as IPointable).Address = meta.VirtualAddress;
             Memory memory = GetTagMemory(meta);
             (block as IPointable).Parse(memory);
@@ -170,14 +170,29 @@ namespace Moonfish.Core
                     throw new Exception(":D");
                 }
             }
-            memory = memory.Copy(12);//setup for local
+            MemoryStream raw_data = new MemoryStream();
+            if (meta.Type == (tag_class)"bitm")
+            {
+                Bitmap_Collection collection = (Bitmap_Collection)block;
+                foreach (var bitmap in collection.Bitmaps)
+                {
+                    var resource = bitmap.get_resource();
+                    BinaryReader bin_reader = new BinaryReader(this);
+                    bin_reader.BaseStream.Position = resource.offset0;
+                    raw_data.Write(bin_reader.ReadBytes(resource.length0), 0, resource.length0);
+                }
+            }
+            memory = memory.Copy(16);//setup for local
             using (FileStream output = File.Create(@"D:\halo_2\shad.bin"))
             {
                 BinaryWriter binary_writer = new BinaryWriter(output);
                 binary_writer.Write((int)meta.Type);
                 binary_writer.Write((int)meta.Id);
-                binary_writer.Write((int)memory.Length);
+                binary_writer.Write((int)(Padding.GetCount(memory.Length) + memory.Length));
+                binary_writer.Write((int)raw_data.Length);
                 binary_writer.Write(memory.ToArray());
+                binary_writer.Write(new byte[Padding.GetCount(output.Position)]);
+                binary_writer.Write(raw_data.ToArray());
                 binary_writer.Write(new byte[Padding.GetCount(output.Position)]);
             }
         }
@@ -188,7 +203,7 @@ namespace Moonfish.Core
             BinaryReader bin_reader = new BinaryReader(this);
             this.Position = meta.VirtualAddress;
             Memory mem = new Memory(bin_reader.ReadBytes(meta.Length), meta.VirtualAddress);
-            TagBlock block = Halo2.CreateInstance((tag_class)"shad");
+            TagBlock block = Halo2.CreateInstance(meta.Type);
             mem.instance_table.Add(new Memory.mem_ref() { address = meta.VirtualAddress, client = block, count = 1, external = false, type = block.GetType() });
             (block as IPointable).Address = meta.VirtualAddress;
             (block as IPointable).Parse(mem);

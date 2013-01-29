@@ -17,6 +17,28 @@ namespace Moonfish.Core
             return string.Format("{0} : {1}", Owner, TagblockID);
         }
     }
+    public class TagBlockReference
+    {
+        public int TagblockID;
+        public int Offset;
+
+        public override string ToString()
+        {
+            return string.Format("{0} : {1}", TagblockID, Offset);
+        }
+    }
+    public class TagReference
+    {
+        public int TagID;
+        public tag_class TagClass;
+
+        public override string ToString()
+        {
+            return string.Format("{0} : {1}", TagID, TagClass);
+        }
+    }
+
+
     public class TagBlockWrapper : IReferenceList<string, string_id>, IReferenceList<tag_info, tag_id>
     {
         tag_class Class { get; set; }
@@ -31,6 +53,7 @@ namespace Moonfish.Core
         TagBlock definition;
         // reference list
         public List<Reference> references = new List<Reference>();
+        public List<TagBlockReference> tagblocks = new List<TagBlockReference>();
 
         public TagBlockWrapper(tag_class base_class, tag_id? unique_identifier, TagBlock tagblock_definition)
         {
@@ -155,11 +178,19 @@ namespace Moonfish.Core
 
         public void CreateReferenceTable()
         {
+            int local_offset = block_graph.Where(pair => pair.Key.Identifier == 0).Select(pair => pair.Key.Offset).SingleOrDefault();
             var keys_values = block_graph.Where(pair=>pair.Key.ParentTagIdentifier ==-1).Select(pair=> pair.Key).ToArray();
             foreach (var item in keys_values)
             {
                     references.Add(new Reference() { Owner = -1, TagblockID = item.Identifier});
                     block_graph.Remove(item);
+
+            }
+
+            tagblocks = new List<TagBlockReference>();
+            foreach (var item in block_graph)
+            {
+                tagblocks.Add(new TagBlockReference() { Offset = item.Key.Offset - local_offset, TagblockID = item.Key.Identifier });
             }
         }
 
@@ -172,7 +203,12 @@ namespace Moonfish.Core
         {
             // if we already contain a value at this index, and the value is the same as the input value
             // then return the string_id of this value.
-            if (reference.Index < strings.Count && strings[reference.Index] == value) return reference;
+            if (strings.Contains(value))
+            {
+                short index = (short)strings.IndexOf(value);
+                sbyte length = (sbyte)Encoding.UTF8.GetByteCount(value);
+                return new string_id(index, length);
+            }
             // else add the value, and return a new string_id for this value
             else
             {
@@ -203,24 +239,6 @@ namespace Moonfish.Core
                 return new_tag_id;
             }
         }
-
-        //IAddressable IReferenceList<IAddressable, int>.GetValue(int reference)
-        //{
-        //    return tag_block_graph[reference];
-        //}
-
-        //int IReferenceList<IAddressable, int>.Link(int reference, IAddressable value)
-        //{
-        //    // if this contains the key value already, and the key points the the same reference, then return the key
-        //    if (tag_block_graph.ContainsKey(reference) && tag_block_graph[reference] == value) return reference;
-        //    // else create a new key value, then add the value to this, and return the new key value
-        //    else
-        //    {
-        //        int new_tagblock_id = tag_block_graph.Count;
-        //        tag_block_graph.Add(new_tagblock_id, value);
-        //        return new_tagblock_id;
-        //    }
-        //}
 
         public class Graph : Dictionary<resource_identifier, object>, IReferenceList<TagBlock, resource_identifier>, IReferenceList<ByteArray, resource_identifier>
         {
@@ -366,121 +384,6 @@ namespace Moonfish.Core
         }
     }
 
-    //internal class StringReferenceList : List<string>, IReferenceList<string, string_id>
-    //{
-    //    string IReferenceList<string, string_id>.GetValue(string_id reference)
-    //    {
-    //        var return_value = this[reference.Index];
-    //        if (return_value.Length == reference.Length)
-    //            return return_value;
-    //        else throw new System.ArgumentException();
-    //    }
-
-    //    string_id IReferenceList<string, string_id>.Link(string_id reference, string value)
-    //    {
-    //        if (reference.Index >= this.Count)
-    //        {
-    //            int index = this.Count;
-    //            this.Add(value);
-    //            return new string_id((short)index, (sbyte)value.Length);
-    //        }
-    //        return reference;
-    //    }
-
-    //    public void Serialize(Stream output_stream)
-    //    {
-    //        BinaryWriter binary_writer = new BinaryWriter(output_stream);
-    //        int current_string_offset = 0;
-
-    //        binary_writer.BeginResource(2);
-    //        binary_writer.BeginResourceBlock(this.Count);
-    //        for (var i = 0; i < this.Count; ++i)
-    //        {
-    //            binary_writer.Write(current_string_offset);
-    //            int string_length = Encoding.UTF8.GetByteCount(this[i]);
-    //            current_string_offset += string_length + 1;
-    //        }
-    //        binary_writer.EndResourceBlock();
-
-    //        binary_writer.BeginResourceBlock(current_string_offset);
-    //        for (var i = 0; i < this.Count; ++i)
-    //        {
-    //            binary_writer.Write(Encoding.UTF8.GetBytes(this[i]));
-    //            binary_writer.Write(byte.MinValue);
-    //        }
-    //        binary_writer.BaseStream.Pad();
-    //        binary_writer.EndResourceBlock();
-    //        binary_writer.EndResource();
-    //    }
-
-    //    internal void Deserialize(Stream source_stream)
-    //    {
-    //        BinaryReader binary_reader = new BinaryReader(source_stream);
-    //        binary_reader.BeginReadResource();
-    //        int count = binary_reader.BeginReadResourceBlock();
-    //        int[] string_offset = new int[count];
-    //        for (var i = 0; i < count; ++i)
-    //        {
-    //            string_offset[i] = binary_reader.ReadInt32();
-    //        }
-    //        int length = binary_reader.BeginReadResourceBlock();
-    //        this.Clear();
-    //        this.AddRange(Encoding.UTF8.GetString(binary_reader.ReadBytes(length)).Split(char.MinValue));
-    //        this.RemoveAt(this.Count - 1);
-    //        binary_reader.EndReadResource();
-    //    }
-    //}
-
-    //internal class TagsReferenceList : List<tag_info>, IReferenceList<tag_info, tag_id>
-    //{
-    //    tag_info IReferenceList<tag_info, tag_id>.GetValue(tag_id reference)
-    //    {
-    //        return this[reference.Index];
-    //    }
-
-    //    tag_id IReferenceList<tag_info, tag_id>.Link(tag_id reference, tag_info value)
-    //    {
-    //        if (reference.Index >= this.Count)
-    //        {
-    //            int index = this.Count;
-    //            this.Add(value);
-    //            return new tag_id((short)index);
-    //        }
-    //        return reference;
-    //    }
-
-    //    public void Serialize(Stream output_stream)
-    //    {
-    //        BinaryWriter binary_writer = new BinaryWriter(output_stream);
-    //        binary_writer.BeginResource(1);
-    //        binary_writer.BeginResourceBlock(this.Count);
-    //        for (var i = 0; i < this.Count; ++i)
-    //        {
-    //            binary_writer.Write(i);
-    //            binary_writer.Write(this[i].Id);
-    //            binary_writer.Write((int)this[i].Type);
-    //        }
-    //        binary_writer.EndResourceBlock();
-    //        binary_writer.EndResource();
-    //    }
-
-    //    internal void Deserialize(Stream source_stream)
-    //    {
-    //        BinaryReader binary_reader = new BinaryReader(source_stream);
-    //        binary_reader.BeginReadResource();
-    //        int count = binary_reader.BeginReadResourceBlock();
-    //        this.Clear();
-    //        for (var i = 0; i < count; ++i)
-    //        {
-    //            binary_reader.ReadInt32();
-    //            tag_id _id = binary_reader.ReadInt32();
-    //            tag_class _class = (tag_class)binary_reader.ReadInt32();
-    //            this.Add(new tag_info() { Type = _class, Id = _id });
-    //        }
-    //        binary_reader.EndReadResource();
-    //    }
-    //}
-
     public struct graph_index
     {
         public const int null_index = -1;
@@ -525,9 +428,6 @@ namespace Moonfish.Core
             right_sibling = null_index,
         };
     }
-
-
-
 
     internal static class ResourceExtensions
     {

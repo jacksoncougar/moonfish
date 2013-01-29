@@ -7,6 +7,12 @@ namespace Moonfish.Core
 {
     #region structure & fields interfaces
 
+    public interface IFieldPointer
+    {
+        int FieldOffset { get; }
+        IField Object { get; }
+    }
+
     public interface IField
     {
         byte[] GetFieldData();
@@ -19,8 +25,16 @@ namespace Moonfish.Core
     public interface IStructure
     {
         void SetField(IField calling_field);
-
         IField GetField(int field_index);
+    }
+
+    public interface IPointable
+    {
+        void Parse(Memory mem);
+        void PointTo(Memory mem);
+        int Address { get; set; }
+        int Alignment { get; }
+        int SizeOf { get; }
     }
 
     #endregion

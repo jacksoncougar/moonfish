@@ -19,7 +19,7 @@ namespace Moonfish.Core
             return (int)address;
         }
 
-        static long GetCount(long address, long alignment = 4)
+        internal static long GetCount(long address, long alignment = 4)
         {
             return (-address) & (alignment - 1);
         }

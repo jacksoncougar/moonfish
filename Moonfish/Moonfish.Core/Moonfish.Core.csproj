@@ -54,7 +54,9 @@
   <ItemGroup>
     <Compile Include="Definitions\antenna.cs" />
     <Compile Include="Definitions\bitmap_collection.cs" />
+    <Compile Include="Definitions\prt3.cs" />
     <Compile Include="Definitions\shader.cs" />
+    <Compile Include="Experimental.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="Globals.cs" />
     <Compile Include="ITagBlockInterface.cs" />

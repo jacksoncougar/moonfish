@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -50,6 +51,29 @@ namespace Moonfish.Core
         {                
             Type tagblock_type = halo_2_classes[class_name];
             return Activator.CreateInstance(tagblock_type) as TagBlock;
+        }
+    }
+
+    public static class StaticBenchmark
+    {
+        static Stopwatch Timer = new Stopwatch();
+        static string result;
+
+        public static void Begin()
+        {
+            Timer.Start();
+        }
+        public static void End()
+        {
+            Timer.Stop();
+            result = Timer.ElapsedMilliseconds.ToString() + " Milliseconds";
+            Timer.Reset();
+        }
+        public static string Result { get { return result; } }
+
+        public static new string ToString()
+        {
+            return Result;
         }
     }
 }

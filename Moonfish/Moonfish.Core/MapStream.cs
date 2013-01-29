@@ -111,7 +111,7 @@ namespace Moonfish.Core
             this.Seek(unicodeIndexAddress, SeekOrigin.Begin);
             for (int i = 0; i < unicodeCount; i++)
             {
-                strRefs[i] = binReader.ReadInt32();
+                strRefs[i] = (string_id)binReader.ReadInt32();
                 strOffsets[i] = binReader.ReadInt32();
             }
             for (int i = 0; i < unicodeCount; i++)
@@ -156,6 +156,46 @@ namespace Moonfish.Core
             throw new Exception();
         }
 
+        public void SerializeTag(tag_info meta)
+        {
+            string name = Paths[meta.Id.Index];
+            TagBlock block = Halo2.CreateInstance(meta.Type); 
+            (block as IPointable).Address = meta.VirtualAddress;
+            Memory memory = GetTagMemory(meta);
+            (block as IPointable).Parse(memory);
+            for (int i = 0; i < memory.instance_table.Count; ++i)
+            {
+                if (memory.instance_table[i].external && !memory.instance_table[i].isnull)
+                {
+                    throw new Exception(":D");
+                }
+            }
+            memory = memory.Copy(12);//setup for local
+            using (FileStream output = File.Create(@"D:\halo_2\shad.bin"))
+            {
+                BinaryWriter binary_writer = new BinaryWriter(output);
+                binary_writer.Write((int)meta.Type);
+                binary_writer.Write((int)meta.Id);
+                binary_writer.Write((int)memory.Length);
+                binary_writer.Write(memory.ToArray());
+                binary_writer.Write(new byte[Padding.GetCount(output.Position)]);
+            }
+        }
+
+        public Memory GetTagMemory(tag_info meta)
+        {
+            //const int tag_num = 4886;
+            BinaryReader bin_reader = new BinaryReader(this);
+            this.Position = meta.VirtualAddress;
+            Memory mem = new Memory(bin_reader.ReadBytes(meta.Length), meta.VirtualAddress);
+            TagBlock block = Halo2.CreateInstance((tag_class)"shad");
+            mem.instance_table.Add(new Memory.mem_ref() { address = meta.VirtualAddress, client = block, count = 1, external = false, type = block.GetType() });
+            (block as IPointable).Address = meta.VirtualAddress;
+            (block as IPointable).Parse(mem);
+            //mem = mem.Copy(0);
+            return mem;
+        }
+
         public TagBlockWrapper PreProcessTag(tag_info tag)
         {
             // Create a new Tagblock instance 
@@ -163,8 +203,10 @@ namespace Moonfish.Core
             // Set the stream position to this virtual offset;
             this.Position = tag.VirtualAddress;
             // Deserialize the tag data
+            StaticBenchmark.Begin();
             var serializeable_interface = (item as ISerializable);
             serializeable_interface.Deserialize(this, new Segment((int)Position, tag.Length));
+            StaticBenchmark.End();
             TagBlockWrapper tag_wrapper = new TagBlockWrapper(tag.Type, tag.Id, item);
 
             var string_reference_interface = (item as IReferenceable<string, string_id>);
@@ -192,12 +234,6 @@ namespace Moonfish.Core
                     {
                         tag_wrapper.references[i].Owner = owner.Value.Id;
                         tag_wrapper.references[i].TagblockID -= owner.Value.VirtualAddress - SecondaryMagic;
-                        {
-                            //Instantiate the tagblock here and return the tagblock_id?
-                            if (tag.Type.ToString() == "shad")
-                            {
-                            }
-                        }
                     }
 
                 }
@@ -212,8 +248,29 @@ namespace Moonfish.Core
             List<TagBlockWrapper> tags = new List<TagBlockWrapper>(this.Tags.Length);
             foreach (var tag_item in this.Tags)
             {
-                tags.Add(PreProcessTag(tag_item));
+                TagBlockWrapper wrapper = PreProcessTag(tag_item);
+                PostProcessTag(wrapper);
             }
+        }
+
+        public void PostProcessTag(TagBlockWrapper wrapper)
+        {
+            //var items = wrapper.references.Select(x => x.Owner).Distinct().ToArray();
+            //foreach (var item in items)
+            //{
+            //    TagBlockWrapper resource_owner = PreProcessTag(Tags[item.Index]);
+            //    var resources = wrapper.references.Where(x => x.Owner == item).ToArray();
+            //    for (int resource_index = 0; resource_index < resources.Length; ++resource_index)
+            //    {
+            //        resources[resource_index].TagblockID = resource_owner.tagblocks
+            //            .Where(x => x.Offset == resources[resource_index].TagblockID)
+            //            .Select(x => x.TagblockID).First();
+            //    }
+            //}
+            //TagBlockWrapper resource_owner = PreProcessTag(Tags[wrapper.references[i].Owner.Index]);
+            //{
+            //}
+            //wrapper.references[i].TagblockID = resource_owner.tagblocks.Select(x => x.).Single();//Select(x => x.Offset).Single();
         }
 
         string IReferenceList<string, string_id>.GetValue(string_id reference)

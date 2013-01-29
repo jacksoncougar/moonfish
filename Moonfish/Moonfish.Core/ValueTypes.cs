@@ -156,8 +156,9 @@ namespace Moonfish.Core
         }
     }
 
-    public struct tag_id
+    public struct tag_id : IField
     {
+        IStructure parent;
         const short DATUM = -7820;
 
         public short Index;
@@ -166,12 +167,14 @@ namespace Moonfish.Core
 
         public tag_id(short index)
         {
+            parent = default(IStructure);
             Index = index;
             salt = (short)(DATUM + index);
         }
 
         public tag_id(short index, short salt)
         {
+            parent = default(IStructure);
             this.Index = index;
             this.salt = salt;
         }
@@ -192,6 +195,28 @@ namespace Moonfish.Core
         }
 
         public const int null_identifier = -1;
+
+        byte[] IField.GetFieldData()
+        {
+            return BitConverter.GetBytes(this);
+        }
+
+        void IField.SetFieldData(byte[] field_data, IStructure caller)
+        {
+            tag_id copy = BitConverter.ToInt32(field_data, 0);
+            this.Index = copy.Index;
+            this.salt = copy.salt;
+        }
+
+        int IField.SizeOfField
+        {
+            get { return 4; }
+        }
+
+        void IField.Initialize(IStructure calling_structure)
+        {
+            parent = calling_structure;
+        }
     }
 
     public struct resource_identifier
@@ -221,30 +246,32 @@ namespace Moonfish.Core
     public struct string_id : IField, IReference<string_id>
     {
         IStructure parent;
-        public short Index;
-        public sbyte Length;
+        public readonly short Index;
+        public readonly short Length;
+        byte nullbyte;
         const int size = 4;
 
-        public static implicit operator int(string_id strRef)
+        public static explicit operator int(string_id strRef)
         {
-            return (strRef.Length << 24) | (ushort)strRef.Index;
+            return (strRef.Length << 24)| strRef.nullbyte | (ushort)strRef.Index;
         }
 
-        public static implicit operator string_id(int i)
+        public static explicit operator string_id(int i)
         {
-            return new string_id((short)(i & 0x0000FFFF), (sbyte)((i & 0xFF000000) >> 24));
+            byte[] bytes = BitConverter.GetBytes(i);
+            return new string_id(BitConverter.ToInt16(bytes, 0), (sbyte)bytes[3], bytes[2]);
         }
 
         byte[] IField.GetFieldData()
         {
-            return BitConverter.GetBytes(this);
+            return BitConverter.GetBytes((int)this);
         }
 
         void IField.SetFieldData(byte[] field_data, IStructure caller)
         {
-            this.Length = (sbyte)field_data[0];
-            this.Index = BitConverter.ToInt16(field_data, 2);
-            parent.SetField(this);
+            this = (string_id)BitConverter.ToInt32(field_data, 0);
+            if (caller != null)
+                parent.SetField(this);
         }
 
         int IField.SizeOfField
@@ -264,8 +291,7 @@ namespace Moonfish.Core
 
         void IReference<string_id>.SetToken(string_id token)
         {
-            this.Index = token.Index;
-            this.Length = token.Length;
+            this = new string_id(token);
             parent.SetField(this);
         }
 
@@ -274,9 +300,17 @@ namespace Moonfish.Core
             get { return false; }
         }
 
-        public string_id(short index, sbyte length)
+        public string_id(string_id copy)
+        {
+            parent = copy.parent;
+            nullbyte = copy.nullbyte; if (nullbyte != byte.MinValue) throw new Exception("Bad String ID. \nBad. bad. bad! >:D");
+            Index = copy.Index;
+            Length = copy.Length;
+        }
+        public string_id(short index, sbyte length, byte debug = byte.MinValue)
         {
             parent = default(IStructure);
+            nullbyte = debug; if (nullbyte != byte.MinValue) throw new Exception("Bad String ID. \nBad. bad. bad! >:D");
             Index = index;
             Length = length;
         }

@@ -15,8 +15,9 @@ namespace Moonfish.Core.Model
 {
     public class Mesh
     {
+        Vector3t t = new Vector3t(0xFFC007FF);
         ShaderGroup[] ShaderGroups;
-        public short[] Indices;
+        public ushort[] Indices;
         public DefaultVertex[] Vertices;
 
         public bool Load(byte[] raw_data, Resource[] raw_resources, CompressionRanges compression_ranges)
@@ -51,11 +52,11 @@ namespace Moonfish.Core.Model
                     #endregion
                     #region Indices
                     case 32:
-                        Indices = new short[count];
+                        Indices = new ushort[count];
                         for (int i = 0; i < count; i++)
                         {
                             if (resource.data_size__or__first_index != sizeof(short)) throw new Exception(":D");
-                            Indices[i] = binary_reader.ReadInt16();
+                            Indices[i] = binary_reader.ReadUInt16();
                         }
                         break;
                     #endregion
@@ -129,30 +130,105 @@ namespace Moonfish.Core.Model
             }
             return true;
         }
+        public void Serialize()
+        {
+            // 1.create halo2 formatted resource blocks
+            MemoryStream buffer = new MemoryStream();
+            BinaryWriter writer = new BinaryWriter(buffer);
+            writer.WriteFourCC("blkh");
+            writer.Write(new byte[4]);              // int: resource size  (reserve)
+            writer.Write(new byte[116]);            // header (reserve)
+            writer.WriteFourCC("rsrc");             // shader_group resource begin
+            writer.Write(new byte[72]);             // shader_group data (reserve)
+            writer.WriteFourCC("rsrc");             // indices resource begin
+            foreach (ushort index in this.Indices)  // write each index ushort
+                writer.Write(index);                // pad to word boundary
+            writer.WritePadding(4);
+            writer.WriteFourCC("rsrc");             // vertex_data_header?
+            writer.Write(new byte[32]);             // vertex resource
+            writer.Write(new byte[32]);             // texcoord resource
+            writer.Write(new byte[32]);             // vectors resource (normal, tangent, binormal)
+            writer.WriteFourCC("rsrc");
+            {
+                Range x = new Range();
+                Range y = new Range();
+                Range z = new Range();
+                foreach (var vertex in this.Vertices)
+                {
+                    x = Range.Include(x, vertex.Position.X);
+                    y = Range.Include(y, vertex.Position.Y);
+                    z = Range.Include(z, vertex.Position.Z);
+                }
+                foreach (var vertex in this.Vertices)
+                {
+                    writer.Write(Deflate(x, vertex.Position.X));
+                    writer.Write(Deflate(y, vertex.Position.Y));
+                    writer.Write(Deflate(z, vertex.Position.Z));
+                }               // pad to word boundary
+                writer.WritePadding(4);
+            }
+            writer.WriteFourCC("rsrc");
+            {
+                Range u = new Range();
+                Range v = new Range();
+                foreach (var vertex in this.Vertices)
+                {
+                    u = Range.Include(u, vertex.TextureCoordinates.X);
+                    v = Range.Include(v, vertex.TextureCoordinates.Y);
+                }
+                foreach (var vertex in this.Vertices)
+                {
+                    writer.Write(Deflate(u, vertex.TextureCoordinates.X));
+                    writer.Write(Deflate(v, vertex.TextureCoordinates.Y));  // flip this still?
+                }              
+            }
+            writer.WriteFourCC("rsrc");
+            // TODO: write write compressed b,t,n vectors here
+            writer.WriteFourCC("rsrc");
+            writer.Write(0);                // default bone-map (no bones)
+            writer.WriteFourCC("blkf");
+
+            // 2. create a sections meta file for this, a bounding box, heck a whole mesh, why not.
+        }
         public bool ImportFromWavefront(string filename)
         {
+            Log.Info(string.Format("Loading file {0} into memory buffer", filename));
             byte[] buffer = null;
             using (var file = File.OpenRead(filename))
             {
                 buffer = new byte[file.Length];
                 file.Read(buffer, 0, buffer.Length);
-            } if (buffer == null) return false;
+            } if (buffer == null)
+            {
+                Log.Error("Failed to create memory buffer");
+                return false;
+            }
             MemoryStream stream = new MemoryStream(buffer);
             StreamReader reader = new StreamReader(stream);
-            List<WavefrontObject> objects = new List<WavefrontObject>();
-            List<WavefrontFace> faces = new List<WavefrontFace>();
+
+            List<Moonfish.Core.Model.WavefrontObject.Object> objects = new List<Moonfish.Core.Model.WavefrontObject.Object>();
+            List<Moonfish.Core.Model.WavefrontObject.Face> faces = new List<Moonfish.Core.Model.WavefrontObject.Face>();
+            
             List<ushort> facestream = new List<ushort>();
-            List<WavefrontFaceIndex> face_indices = new List<WavefrontFaceIndex>();
+
             List<Vector3> vertex_coords = new List<Vector3>();
             List<Vector2> texture_coords = new List<Vector2>();
             List<Vector3> normals = new List<Vector3>();
+
             bool default_object = true;
             int current_object_index = 0;
-            objects.Add(new WavefrontObject());
+
+            objects.Add(new Moonfish.Core.Model.WavefrontObject.Object());
+
+            Log.Info("Begin parsing Wavefront Object data from buffer");
             while(!reader.EndOfStream)
             {
                 string line = reader.ReadLine().Trim();
-                if (line.StartsWith("# ")) continue;
+                if (line.StartsWith("# "))
+                {
+                    Log.Info(line);
+                    continue;
+                }
                 if (line.StartsWith("o "))
                 {
                     // if this is the first object token, use the default object
@@ -161,11 +237,8 @@ namespace Moonfish.Core.Model
                     {
                         Log.Warn(@"Support for multiple wavefront objects per mesh not implemented.
                                    Meshes can only accept a single wavefront object. Continuing, but only using first object!");
-                        objects.Add(new WavefrontObject() { faces_start_index = face_indices.Count });
-                        var copy = objects[current_object_index];
-                        copy.faces_count = face_indices.Count - objects[current_object_index].faces_start_index;
-                        objects[current_object_index] = copy;
-                        current_object_index++;
+                        
+                        throw new Exception("jk :D");
                     }
                 }
                 else if (line.StartsWith("v "))
@@ -185,83 +258,38 @@ namespace Moonfish.Core.Model
                 }
                 else if (line.StartsWith("f "))
                 {
-                    string[] items = line.Split(' ');
-                    if (items.Length != 4)
+                    Moonfish.Core.Model.WavefrontObject.Face face;
+                    if (!Moonfish.Core.Model.WavefrontObject.Face.TryParse(line, out face))
                     {
-                        Log.Error("Support for polygonal wavefront faces not implemented. Faces must be triangles");
+                        Log.Error(string.Format("Error parsing line: {0}", line));
                         return false;
                     }
-                    faces.Add(new WavefrontFace() { face_indices = new int[] { face_indices.Count, face_indices.Count + 1, face_indices.Count + 2 } });
-                    for (var i = 1; i < items.Length; ++i)
-                    {
-                        if (false)
-                        {
-                            facestream.Add((ushort)(ushort.Parse(items[i]) - 1));
-                            face_indices.Add(new WavefrontFaceIndex()
-                            {
-                                vertex_coord_index = (short)(short.Parse(items[i + 0]) - 1),
-                                texture_coord_index = (short)(short.Parse(items[i + 1]) - 1),
-                                normal_coord_index = (short)(short.Parse(items[i + 2]) - 1)
-                            });
-                        }
-                        else
-                        {
-                            string[] indices = items[i].Split('/');
-                            facestream.Add((ushort)(ushort.Parse(items[i]) - 1));
-                            //face_indices.Add(new WavefrontFaceIndex()
-                            //{
-                            //    vertex_coord_index = (short)(short.Parse(indices[0]) - 1),
-                            //    texture_coord_index = (short)(short.Parse(indices[1]) - 1),
-                            //    normal_coord_index = (short)(short.Parse(indices[2]) - 1)
-                            //});
-                        }
-                    }
+                    else faces.Add(face);
                 }
             }
+            Log.Info("Success! Finished parsing Wavefront Object data from buffer");
             //TODO: generate tri-strips
             //generate sahder-group structs
             //compress vertex data
             //create bone map with default bone
             this.Vertices = new DefaultVertex[vertex_coords.Count];
-            for(int i = 0; i < vertex_coords.Count;++i)
+            for (int i = 0; i < vertex_coords.Count; ++i)
             {
                 this.Vertices[i] = new DefaultVertex() { Position = vertex_coords[i] };
             }
-            Adjacencies stripper = new Adjacencies(facestream.ToArray());
+            ushort[] vertex_indices = new ushort[faces.Count * 3];
+            for (int i = 0; i < faces.Count; i++)
+            {
+                vertex_indices[i * 3 + 0] = (ushort)(faces[i].vertex_indices[0] - 1);
+                vertex_indices[i * 3 + 1] = (ushort)(faces[i].vertex_indices[1] - 1);
+                vertex_indices[i * 3 + 2] = (ushort)(faces[i].vertex_indices[2] - 1);
+            }
+            Adjacencies stripper = new Adjacencies(vertex_indices);
             Random r = new Random(DateTime.Now.Millisecond);
-            TriangleStrip[] strips = stripper.GenerateStripArray(r.Next(facestream.Count / 3));
-            QuickModelView quick_view = new QuickModelView(this, strips);
-            while (!quick_view.ShowDialog())
-            {
-                strips = stripper.GenerateStripArray(r.Next(facestream.Count / 3)); 
-                quick_view = new QuickModelView(this, strips);
-            }
+            QuickModelView quick_view = new QuickModelView(this, stripper);
+            quick_view.Run();
+            this.Indices = quick_view.GetStrip();
             return true;
-        }
-        struct WavefrontObject
-        {
-           public int faces_start_index;
-           public int faces_count;
-
-           public override string ToString()
-           {
-               return string.Format("{0} : {1}", faces_start_index, faces_count);
-           }
-        }
-        struct WavefrontFace
-        {
-            public int[] face_indices;
-        }
-        struct WavefrontFaceIndex
-        {
-            public short vertex_coord_index;
-            public short texture_coord_index;
-            public short normal_coord_index;
-
-            public override string ToString()
-            {
-                return string.Format("v: {0} / vt: {1} / vn: {2}", vertex_coord_index, texture_coord_index, normal_coord_index);
-            }
         }
 
         private DefaultVertex[] ExtractVertices(CompressionRanges compression_ranges, byte[] coord_raw, int coord_size, byte[] texcoord_raw, int texcoord_size, byte[] vector_raw, int vector_size)
@@ -278,54 +306,63 @@ namespace Moonfish.Core.Model
                 Vector2 texcoord = new Vector2(BitConverter.ToInt16(coord_raw, i * coord_size), BitConverter.ToInt16(coord_raw, i + 1 * coord_size));
                 texcoord.X = Project(position.X,  compression_ranges.u1);
                 texcoord.Y = Project(position.Y,  compression_ranges.v1);
-                vertices[i] = new DefaultVertex() { Position = position, TextureCoordinates = texcoord, Normal = ExpandVector(BitConverter.ToInt32(vector_raw, i * vector_size)) };
+                vertices[i] = new DefaultVertex() { Position = position, TextureCoordinates = texcoord, Normal = new Vector3t(BitConverter.ToUInt32(vector_raw, i * vector_size)) };
             }
             return vertices;
         }
 
-        Vector3 ExpandVector(int compressed_vector_data)
+        //Vector3 ExpandVector(int compressed_vector_data)
+        //{
+        //    int CompressedData = compressed_vector_data;
+
+        //    short msb_radix = (short)((compressed_vector_data >> 00 & 0x7FF)) ;
+        //    msb_radix = (msb_radix & 0x400) == 0x400 ? (short)-((~msb_radix) & 0x000007FF) : msb_radix;
+
+        //    short mid_radix = (short)((compressed_vector_data >> 11 & 0x7FF));
+        //    mid_radix = (mid_radix & 0x400) == 0x400 ? (short)-((~mid_radix) & 0x000007FF) : mid_radix;
+
+        //    short lsb_radix = (short)((compressed_vector_data >> 22 & 0x3FF));
+        //    lsb_radix = (lsb_radix & 0x200) == 0x200 ? (short)-((~lsb_radix) & 0x000003FF) : lsb_radix;
+
+        //    float x = (float)msb_radix / (float)0x3FF;
+        //    float y = (float)mid_radix / (float)0x3FF;
+        //    float z = (float)lsb_radix / (float)0x1FF;
+            
+        //    return new Vector3(x, y, x);
+        //}
+
+        /// <summary>
+        /// Takes a value and converts it into a range from 0.0 to 1.0 stored as a ushort
+        /// </summary>
+        /// <param name="input_range"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        ushort Deflate(Range input_range, float value)
         {
-            int CompressedData = compressed_vector_data;
-            
-            int x11 = (CompressedData & 0x000007FF);
-            if ((x11 & 0x00000400) == 0x00000400)
-            {
-                x11 = -((~x11) & 0x000007FF);
-                if (x11 == 0) x11 = -1;
-            }
-            
-            int y11 = (CompressedData >> 11) & 0x000007FF;
-            if ((y11 & 0x00000400) == 0x00000400)
-            {
-                y11 = -((~y11) & 0x000007FF);
-                if (y11 == 0) y11 = -1;
-            }
-            
-            int z10 = (CompressedData >> 22) & 0x000003FF;//last 10 bits
-            if ((z10 & 0x00000200) == 0x00000200)
-            {
-                z10 = -((~z10) & 0x000003FF);
-                if (z10 == 0) z10 = -1;
-            }
-            float x, y, z;
-            x = (x11 / (float)0x000003ff);//10
-            y = (y11 / (float)0x000003FF);//10
-            z = (z10 / (float)0x000001FF);//9
-            return new Vector3(x, y, x);
+            const float max_ushort = ushort.MaxValue;
+            if (value > input_range.max) value = input_range.max;
+            if (value < input_range.min) value = input_range.min;
+            var ratio = value / input_range.max;
+            return (ushort)(max_ushort * ratio);
         }
 
-        float Project(float value,  Range range)
+        float Project(float value_in_range,  Range range)
         {
             const float Max = 1.0f / ushort.MaxValue;
             const float Half = short.MaxValue;
-            return (((value + Half) * Max) * (range.max - range.min)) + range.min;
+            return (((value_in_range + Half) * Max) * (range.max - range.min)) + range.min;
         }
 
         public struct DefaultVertex
         {
             public Vector3 Position;
             public Vector2 TextureCoordinates;
-            public Vector3 Normal;
+            public Vector3t Normal;
+
+            public override string ToString()
+            {
+                return string.Format("{0}, {1}, {2}", Position, TextureCoordinates, Normal);
+            }
         }
         struct ShaderGroup
         {
@@ -355,8 +392,8 @@ namespace Moonfish.Core.Model
 
         public void Show()
         {
-            QuickModelView render_window = new QuickModelView(this);
-            render_window.Run();
+            //QuickModelView render_window = new QuickModelView(this);
+            //render_window.Run();
         }
     }
 }

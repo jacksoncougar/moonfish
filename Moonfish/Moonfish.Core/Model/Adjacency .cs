@@ -2,6 +2,7 @@
 using OpenTK.Graphics;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -92,6 +93,7 @@ namespace Moonfish.Core.Model.Adjacency
             }
         }
 
+        public int TriangleCount { get { return triangle_buffer.Length; } }
         AdjacentTriangle[] triangle_buffer;
         AdjacentEdge[] edge_buffer;
         bool[] triangle_flags;
@@ -254,7 +256,7 @@ namespace Moonfish.Core.Model.Adjacency
             return strip_indices;
         }
 
-        public TriangleStrip[] GenerateStripArray(int seedface, int max_strip_length = 2048)
+        TriangleStrip[] GenerateStripArray(int seedface, int max_strip_length = 2048)
         {
             triangle_flags = new bool[triangle_buffer.Length];
             int unprocessed_faces = triangle_buffer.Length;
@@ -274,6 +276,37 @@ namespace Moonfish.Core.Model.Adjacency
                 }
             }
             return strips.ToArray();
+        }
+        public ushort[] GenerateTriangleStrip()
+        {
+            TriangleStrip[] strips = GenerateStripArray(0);
+            //short[] buffer;
+            //int strip_length = 0;
+            //foreach (var strip in strips)
+            //    strip_length += strip.indices.Length + 2; // two degens?
+            //buffer = new short[strip_length];
+            //okay, concatenate strips. I'm hoping they are already in the correct winding order per strip,
+            //so if the strip ending is odd, add the new strip with double degens, else single degens?
+            MemoryStream buffer = new MemoryStream();
+            BinaryWriter writer = new BinaryWriter(buffer);
+            bool first = true;
+            foreach (var strip in strips)
+            {
+                if (!first)
+                {
+                    writer.Write(strip.indices[0]);
+                }
+                else
+                    first = false;
+                foreach (ushort index in strip.indices)
+                {
+                    writer.Write((ushort)index);
+                }
+                writer.Write((ushort)strip.indices[strip.indices.Length - 1]);
+            } buffer.SetLength(buffer.Length - 2);
+            ushort[] return_buffer = new ushort[buffer.Length/2];
+            Buffer.BlockCopy(buffer.ToArray(), 0, return_buffer, 0, (int)buffer.Length);
+            return return_buffer;
         }
     }
 }

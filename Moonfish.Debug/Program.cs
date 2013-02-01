@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Drawing;
 using System.Windows.Forms;
+using System;
 
 namespace Moonfish.Debug
 {
@@ -15,6 +16,10 @@ namespace Moonfish.Debug
     {
         static void Main(string[] args)
         {
+            Console.WriteLine("Moonfish Core:");
+            //Console.ReadKey();
+            Log.OnLog = new Log.LogMessageHandler(Console.WriteLine);
+            //Log.OnLog  = new Log.LogMessageHandler(
             //Moonfish.Core.Raw.RadixSorter radsort = new Core.Raw.RadixSorter();
             //return;
             MapStream map = new MapStream(@"C:\Users\stem\Documents\zanzibar.map");
@@ -24,9 +29,9 @@ namespace Moonfish.Debug
             byte[] raw_data = new byte[raw.Length];
             map.Read(raw_data, 0, raw_data.Length);
             Mesh mesh_data = new Mesh();
-           // mesh_data.Load(raw_data, tag.Sections[0].GetSectionResources(), tag.GetBoundingBox().GetCompressionRanges());
-           // mesh_data.Show();
-            mesh_data.ImportFromWavefront(@"D:\halo_2\trisphere-x.obj");
+            mesh_data.Load(raw_data, tag.Sections[0].GetSectionResources(), tag.GetBoundingBox().GetCompressionRanges());
+            //mesh_data.Show();
+            //mesh_data.ImportFromWavefront(@"D:\halo_2\monkey.obj");
             //mesh_data.Load(raw_data, tag.Sections[0].GetSectionResources(), tag.GetBoundingBox().GetCompressionRanges());
             
             return;

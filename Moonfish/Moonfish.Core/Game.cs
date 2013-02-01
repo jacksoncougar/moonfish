@@ -16,41 +16,76 @@ namespace StarterKit
 {
     class QuickModelView : GameWindow
     {
+        int SelectedStrip
+        {
+            get { return selectedstrip_; }
+            set { if (value >= 0 && value <= strips.Length) selectedstrip_ = value; }
+        }
+        float Yaw
+        {
+            get
+            {
+                yaw_ = yaw_ > 360 ? yaw_ + (float)(rotation_speed - 360) : yaw_ + rotation_speed;
+                return yaw_;
+            }
+        }
+        float Zoom
+        {
+            get { return zoom_; }
+            set { if (value > zoom_min && value < zoom_max) zoom_ = value; }
+        }
+
         private Moonfish.Core.Model.Mesh mesh;
         bool draw_strip = false;
 
-        public QuickModelView(Moonfish.Core.Model.Mesh mesh)
-            :base(600, 480)
-        {
-            // TODO: Complete member initialization
-            WindowBorder = OpenTK.WindowBorder.Fixed;
-            this.mesh = mesh;
-            this.Zoom = 4.0f;
-        }
+        bool return_value = false;
+        float yaw_ = default(float);
+        float rotation_speed = (float)Math.PI / (90.0f);
+        int selectedstrip_ = 0;
+        float zoom_ = zoom_min;
+        const float zoom_max = 1000.0f;
+        const float zoom_min = 1.0f;
+        float zoom_step = 0.015f;
+        private TriangleStrip[] strips = new TriangleStrip[0];
+        public ushort[] GetStrip() { return strips[0].indices; }
+        private Adjacencies stripper;
 
-        public QuickModelView(Moonfish.Core.Model.Mesh mesh, TriangleStrip strip)
+        public QuickModelView(Moonfish.Core.Model.Mesh mesh, Adjacencies stripper)
+            : base(400, 400)
         {
             // TODO: Complete member initialization
             this.mesh = mesh;
-            this.strips = new TriangleStrip[] { strip };
-            draw_strip = true;
-        }
-
-        public QuickModelView(Moonfish.Core.Model.Mesh mesh, TriangleStrip[] strips)
-        {
-            // TODO: Complete member initialization
-            this.mesh = mesh;
-            this.strips = strips;
+            this.stripper = stripper;
             Random random = new Random();
+            draw_strip = false;
+            strips = new TriangleStrip[] { new TriangleStrip() { indices = stripper.GenerateTriangleStrip() } };
             byte[] rgb = new byte[3];
             for (int i = 0; i < strips.Length; i++)
             {
                 random.NextBytes(rgb);
                 strips[i].colour = new Color4(rgb[0], rgb[1], rgb[2], 255);
             }
+            SelectedStrip = SelectedStrip > strips.Length ? strips.Length : SelectedStrip;
             draw_strip = true;
         }
 
+
+        internal void RegenerateStrips()
+        {
+            //Random random = new Random(DateTime.Now.Millisecond);
+            //var temp_strip = stripper.GenerateStripArray(random.Next(stripper.TriangleCount));
+            //if (temp_strip.Length < strips.Length)
+            //{
+            //    strips = temp_strip;
+            //    byte[] rgb = new byte[3];
+            //    for (int i = 0; i < strips.Length; i++)
+            //    {
+            //        random.NextBytes(rgb);
+            //        strips[i].colour = new Color4(rgb[0], rgb[1], rgb[2], 255);
+            //    }
+            //    SelectedStrip = SelectedStrip > strips.Length ? strips.Length : SelectedStrip;
+            //}
+        }
         
         protected override void OnLoad(EventArgs e)
         {
@@ -69,17 +104,6 @@ namespace StarterKit
             float[] lightColor1 = { .5f, 0.5f, 0.5f, 0.0f };
             GL.Light(LightName.Light0, LightParameter.Diffuse, lightColor1);
             GL.Light(LightName.Light0, LightParameter.Position, lightPose1);
-            //GL.EnableClientState(ArrayCap.VertexArray);
-            
-            //GL.VertexPointer(3, VertexPointerType.Float, 5 * 8, 0);
-            
-            //GL.GenBuffers(2, VBOid); 
-            
-            //GL.BindBuffer(BufferTarget.ArrayBuffer, VBOid[0]);
-            //GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(ushort) * mesh.Indices.Length), mesh.Indices, BufferUsageHint.StaticDraw);
-
-            //GL.BindBuffer(BufferTarget.ElementArrayBuffer, VBOid[1]); 
-            //GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(sizeof(float) * 8 * mesh.Vertices.Length), mesh.Vertices, BufferUsageHint.StaticDraw);
         }
 
         /// <summary>
@@ -99,6 +123,13 @@ namespace StarterKit
             GL.LoadMatrix(ref projection);
         }
 
+        public override void Exit()
+        {
+            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
+            base.Exit();
+        }
+
         /// <summary>
         /// Called when it is time to setup the next frame. Add you game logic here.
         /// </summary>
@@ -113,8 +144,7 @@ namespace StarterKit
             }
             if (Keyboard[Key.End])
             {
-                return_value = true;
-                Exit();
+                RegenerateStrips();
             }
             if (Keyboard[Key.W] || Keyboard[Key.Up])
                 Zoom -= zoom_step;
@@ -131,34 +161,6 @@ namespace StarterKit
                 Thread.Sleep(10);
             }
         }
-
-        bool return_value = false;
-        float yaw_ = default(float);
-        float rotation_speed = (float)Math.PI / (90.0f);
-        int selectedstrip_=0;
-        int SelectedStrip
-        {
-            get { return selectedstrip_; }
-            set { if (value >= 0 && value < strips.Length) selectedstrip_ = value; }
-        }
-        float Yaw
-        {
-            get
-            {
-                yaw_ = yaw_ > 360 ? yaw_ + (float)(rotation_speed - 360) : yaw_ + rotation_speed;
-                return yaw_;
-            }
-        }
-        float zoom_ = zoom_min;
-        const float zoom_max = 1000.0f;
-        const float zoom_min = 1.0f;
-        float Zoom
-        {
-            get { return zoom_; }
-            set { if (value > zoom_min && value < zoom_max) zoom_ = value; }
-        }
-        float zoom_step = 0.015f;
-        private TriangleStrip[] strips;
 
         /// <summary>
         /// Called when it is time to render the next frame. Add your rendering code here.
@@ -194,14 +196,14 @@ namespace StarterKit
                 GL.End();
                 for (uint i = 0; i < SelectedStrip; i++)
                 {
-                    GL.Begin(BeginMode.TriangleStrip); 
+                    GL.Begin(BeginMode.TriangleStrip);
                     for (uint j = 0; j < strips[i].indices.Length; j++)
                     {
                         GL.PointSize(4.0f);
                         GL.Color4(strips[i].colour);
                         GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position);
                     }
-                    GL.End(); 
+                    GL.End();
                 }
                 //GL.Begin(BeginMode.TriangleStrip);
                 //    for (uint i = 0; i < strips[SelectedStrip].indices.Length; i++)
@@ -214,38 +216,18 @@ namespace StarterKit
             }
             else
             {
-                GL.Begin(BeginMode.TriangleStrip);
-                for (uint i = 0; i < mesh.Indices.Length; i++)
-                {
-                    GL.Color4(Color4.Purple);
-                    GL.Vertex3(mesh.Vertices[mesh.Indices[i]].Position);
-                    GL.Normal3(mesh.Vertices[mesh.Indices[i]].Normal);
-                }
-                GL.End();
+                //GL.Begin(BeginMode.TriangleStrip);
+                //for (uint i = 0; i < mesh.Indices.Length; i++)
+                //{
+                //    GL.Color4(Color4.Purple);
+                //    GL.Vertex3(mesh.Vertices[mesh.Indices[i]].Position);
+                //    GL.Normal3(mesh.Vertices[mesh.Indices[i]].Normal);
+                //}
+                //GL.End();
             }
             //GL.DrawElements(BeginMode.TriangleStrip, mesh.Indices.Length, DrawElementsType.UnsignedShort, mesh.Indices);
 
             SwapBuffers();
-        }
-
-
-        internal bool ShowDialog()
-        {
-            this.Run();
-            return return_value;
-        }
-
-        internal void Inject(TriangleStrip[] strips)
-        {
-            this.strips = strips;
-            Random random = new Random();
-            byte[] rgb = new byte[3];
-            for (int i = 0; i < strips.Length; i++)
-            {
-                random.NextBytes(rgb);
-                strips[i].colour = new Color4(rgb[0], rgb[1], rgb[2], 255);
-            }
-            draw_strip = true;
         }
     }
 }

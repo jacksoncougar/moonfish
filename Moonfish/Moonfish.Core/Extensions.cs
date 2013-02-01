@@ -19,5 +19,19 @@ namespace Moonfish.Core
         {
             return new tag_class(binreader.ReadBytes(4));
         }
+
+        public static void WriteFourCC(this BinaryWriter writer, string code)
+        {
+            byte[] buffer = new byte[4];
+            byte[] charbytes = Encoding.UTF8.GetBytes(code);
+            Array.Copy(charbytes, buffer, charbytes.Length % 5);
+            Array.Reverse(buffer);
+            writer.Write(buffer);
+        }
+
+        public static void WritePadding(this BinaryWriter writer, int alignment)
+        {
+            writer.Write(new byte[Padding.GetCount(writer.BaseStream.Position, alignment)]);
+        }
     }
 }

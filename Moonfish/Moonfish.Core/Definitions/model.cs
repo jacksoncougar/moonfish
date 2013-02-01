@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Moonfish.Core.Model;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 namespace Moonfish.Core
@@ -29,17 +30,17 @@ namespace Moonfish.Core
 
         public class BoundingBox : TagBlock
         {
-            public Moonfish.Core.Raw.CompressionRanges GetCompressionRanges()
+            public CompressionRanges GetCompressionRanges()
             {
                 BinaryReader binary_reader = new BinaryReader(this.GetMemory());
-                return new Raw.CompressionRanges(
-                     x: new Raw.Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
-                     y: new Raw.Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
-                     z: new Raw.Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
-                     u1: new Raw.Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
-                     v1: new Raw.Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
-                     u2: new Raw.Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
-                     v2: new Raw.Range(binary_reader.ReadSingle(), binary_reader.ReadSingle())
+                return new CompressionRanges(
+                     x: new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
+                     y: new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
+                     z: new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
+                     u1: new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
+                     v1: new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
+                     u2: new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
+                     v2: new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle())
                     );
             }
             public BoundingBox() : base(56) { }

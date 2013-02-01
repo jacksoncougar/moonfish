@@ -72,7 +72,12 @@ namespace Moonfish.Core
         static void LogMessage(string token, string message)
         {
             if (OnLog != null)
-                OnLog(string.Format("{0}: {0}", "ERROR", token,  message));
+                OnLog(string.Format("{0}: {1}", token,  message));
+        }
+
+        internal static void Info(string message)
+        {
+            LogMessage("Info", message);
         }
     }
 

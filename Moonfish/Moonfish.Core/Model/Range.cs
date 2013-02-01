@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Moonfish.Core.Raw
+namespace Moonfish.Core.Model
 {
     public struct Range
     {
@@ -15,6 +15,15 @@ namespace Moonfish.Core.Raw
             // TODO: Complete member initialization
             this.min = min1;
             this.max = max1;
+        }
+
+        internal static Range Include(Range x, float p)
+        {
+            float min = x.min;
+            float max = x.min;
+            if (x.min > p) min = p;
+            if (x.max < p) max = p;
+            return new Range(min, max);
         }
     }
 }

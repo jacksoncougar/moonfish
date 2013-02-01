@@ -2,6 +2,8 @@
 using System.IO;
 using System;
 using System.Collections.Generic;
+using Moonfish.Core.Model;
+using System.Linq;
 
 namespace Moonfish.Core
 {
@@ -167,7 +169,7 @@ namespace Moonfish.Core
             {
                 if (memory.instance_table[i].external && !memory.instance_table[i].isnull)
                 {
-                    throw new Exception(":D");
+                    throw new Exception(":D \n\n\n\n\n");
                 }
             }
             MemoryStream raw_data = new MemoryStream();
@@ -181,7 +183,26 @@ namespace Moonfish.Core
                     bin_reader.BaseStream.Position = resource.offset0;
                     raw_data.Write(bin_reader.ReadBytes(resource.length0), 0, resource.length0);
                 }
-            }
+            } 
+            //if (meta.Type == (tag_class)"mode")
+            //{
+            //    model collection = (model)block;
+            //    foreach (var bitmap in collection.Sections)
+            //    {
+            //        var resource = bitmap.GetRawPointer();
+            //        BinaryReader bin_reader = new BinaryReader(this);
+            //        bin_reader.BaseStream.Position = resource.Address;
+            //        raw_data.Write(bin_reader.ReadBytes(resource.Length), 0, resource.Length);
+            //        {//because
+            //            {//fuck you
+            //                Mesh mesh = new Mesh();
+            //                mesh.Load(raw_data.ToArray(), bitmap.GetSectionResources(), collection.GetBoundingBox().GetCompressionRanges());
+            //                //mesh.ExportAsWavefront(@"D:\halo_2\wavefront.obj");
+            //            }
+            //        }
+            //    }
+            //}
+           
             memory = memory.Copy(16);//setup for local
             using (FileStream output = File.Create(@"D:\halo_2\shad.bin"))
             {
@@ -211,62 +232,62 @@ namespace Moonfish.Core
             return mem;
         }
 
-        public TagBlockWrapper PreProcessTag(tag_info tag)
-        {
-            // Create a new Tagblock instance 
-            TagBlock item = Halo2.CreateInstance(tag.Type);
-            // Set the stream position to this virtual offset;
-            this.Position = tag.VirtualAddress;
-            // Deserialize the tag data
-            StaticBenchmark.Begin();
-            var serializeable_interface = (item as ISerializable);
-            serializeable_interface.Deserialize(this, new Segment((int)Position, tag.Length));
-            StaticBenchmark.End();
-            TagBlockWrapper tag_wrapper = new TagBlockWrapper(tag.Type, tag.Id, item);
+        //public TagBlockWrapper PreProcessTag(tag_info tag)
+        //{
+        //    // Create a new Tagblock instance 
+        //    TagBlock item = Halo2.CreateInstance(tag.Type);
+        //    // Set the stream position to this virtual offset;
+        //    this.Position = tag.VirtualAddress;
+        //    // Deserialize the tag data
+        //    StaticBenchmark.Begin();
+        //    var serializeable_interface = (item as ISerializable);
+        //    serializeable_interface.Deserialize(this, new Segment((int)Position, tag.Length));
+        //    StaticBenchmark.End();
+        //    TagBlockWrapper tag_wrapper = new TagBlockWrapper(tag.Type, tag.Id, item);
 
-            var string_reference_interface = (item as IReferenceable<string, string_id>);
-            string_reference_interface.CopyReferences(this, tag_wrapper);
+        //    var string_reference_interface = (item as IReferenceable<string, string_id>);
+        //    string_reference_interface.CopyReferences(this, tag_wrapper);
 
-            var tag_reference_interface = (item as IReferenceable<tag_info, tag_id>);
-            tag_reference_interface.CopyReferences(this, tag_wrapper);
-            {
-                var __interface = (item as IReferenceable<TagBlock, resource_identifier>);
-                __interface.CreateReferences(tag_wrapper.block_graph);
-            }
-            {
-                var __interface = (item as IReferenceable<ByteArray, resource_identifier>);
-                __interface.CreateReferences(tag_wrapper.block_graph);
-            }
-            tag_wrapper.CreateReferenceTable();
-
-
-            //LINK RESOURCES
-            {
-                tag_info? owner;
-                for (int i = 0; i < tag_wrapper.references.Count; ++i)
-                {
-                    if ((owner = GetOwner(tag_wrapper.references[i].TagblockID)).HasValue)
-                    {
-                        tag_wrapper.references[i].Owner = owner.Value.Id;
-                        tag_wrapper.references[i].TagblockID -= owner.Value.VirtualAddress - SecondaryMagic;
-                    }
-
-                }
-            }
+        //    var tag_reference_interface = (item as IReferenceable<tag_info, tag_id>);
+        //    tag_reference_interface.CopyReferences(this, tag_wrapper);
+        //    {
+        //        var __interface = (item as IReferenceable<TagBlock, resource_identifier>);
+        //        __interface.CreateReferences(tag_wrapper.block_graph);
+        //    }
+        //    {
+        //        var __interface = (item as IReferenceable<ByteArray, resource_identifier>);
+        //        __interface.CreateReferences(tag_wrapper.block_graph);
+        //    }
+        //    tag_wrapper.CreateReferenceTable();
 
 
-            return tag_wrapper;
-        }
+        //    //LINK RESOURCES
+        //    {
+        //        tag_info? owner;
+        //        for (int i = 0; i < tag_wrapper.references.Count; ++i)
+        //        {
+        //            if ((owner = GetOwner(tag_wrapper.references[i].TagblockID)).HasValue)
+        //            {
+        //                tag_wrapper.references[i].Owner = owner.Value.Id;
+        //                tag_wrapper.references[i].TagblockID -= owner.Value.VirtualAddress - SecondaryMagic;
+        //            }
 
-        internal void Deserialize()
-        {
-            List<TagBlockWrapper> tags = new List<TagBlockWrapper>(this.Tags.Length);
-            foreach (var tag_item in this.Tags)
-            {
-                TagBlockWrapper wrapper = PreProcessTag(tag_item);
-                PostProcessTag(wrapper);
-            }
-        }
+        //        }
+        //    }
+
+
+        //    return tag_wrapper;
+        //}
+
+        //internal void Deserialize()
+        //{
+        //    List<TagBlockWrapper> tags = new List<TagBlockWrapper>(this.Tags.Length);
+        //    foreach (var tag_item in this.Tags)
+        //    {
+        //        TagBlockWrapper wrapper = PreProcessTag(tag_item);
+        //        PostProcessTag(wrapper);
+        //    }
+        //}
 
         public void PostProcessTag(TagBlockWrapper wrapper)
         {
@@ -318,6 +339,26 @@ namespace Moonfish.Core
         void IReferenceList<tag_info, tag_id>.Add(tag_id reference, tag_info value)
         {
             throw new NotImplementedException();
+        }
+
+        public tag_info FindFirst(tag_class tag_class, string path_fragment)
+        {
+            foreach (var tag in this.Tags)
+            {
+                if (tag.Type == tag_class && Paths[tag.Id.Index].Contains(path_fragment))
+                    return tag;
+            }
+            return new tag_info();
+        }
+
+        public TagBlock GetTag(tag_info tag)
+        {
+            string name = Paths[tag.Id.Index];
+            TagBlock block = Halo2.CreateInstance(tag.Type);
+            (block as IPointable).Address = tag.VirtualAddress;
+            Memory memory = GetTagMemory(tag);
+            (block as IPointable).Parse(memory);
+            return block;
         }
     }
 

@@ -47,10 +47,32 @@ namespace Moonfish.Core
             return halo_2_classes[class_name];
         }
 
-        internal static TagBlock CreateInstance(tag_class class_name)
+        public static TagBlock CreateInstance(tag_class class_name)
         {                
             Type tagblock_type = halo_2_classes[class_name];
             return Activator.CreateInstance(tagblock_type) as TagBlock;
+        }
+    }
+
+    public static class Log
+    {
+        public delegate void LogMessageHandler(string message);
+        public static LogMessageHandler OnLog;
+
+        internal static void Error(string message)
+        {
+            LogMessage("Error", message);
+        }
+
+        internal static void Warn(string message)
+        {
+            LogMessage("Warning", message);
+        }
+
+        static void LogMessage(string token, string message)
+        {
+            if (OnLog != null)
+                OnLog(string.Format("{0}: {0}", "ERROR", token,  message));
         }
     }
 

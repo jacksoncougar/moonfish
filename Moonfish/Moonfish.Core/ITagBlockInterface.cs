@@ -5,49 +5,7 @@ using System.IO;
 
 namespace Moonfish.Core
 {
-    #region structure & fields interfaces
-
-    public interface IFieldPointer
-    {
-        int FieldOffset { get; }
-        IField Object { get; }
-    }
-
-    public interface IField
-    {
-        byte[] GetFieldData();
-        void SetFieldData(byte[] field_data, IStructure caller = null);
-        int SizeOfField { get; }
-
-        void Initialize(IStructure calling_structure);
-    }
-
-    public interface IStructure
-    {
-        void SetField(IField calling_field);
-        IField GetField(int field_index);
-    }
-
-    public interface IPointable
-    {
-        void Parse(Memory mem);
-        void PointTo(Memory mem);
-        int Address { get; set; }
-        int Alignment { get; }
-        int SizeOf { get; }
-    }
-
-    #endregion
-
-    public interface ISerializable
-    {
-        void Deserialize(Stream source_stream);
-        int Serialize(Stream destination_stream, int destination_address);
-        void Deserialize(Stream source_stream, Segment stream_segment);
-        int SerializedSize { get; }
-    }
-
-    public interface IReferenceList<T, TToken> where TToken : struct
+        public interface IReferenceList<T, TToken> where TToken : struct
     {
         /// <summary>
         /// return the object we are token-referencing to

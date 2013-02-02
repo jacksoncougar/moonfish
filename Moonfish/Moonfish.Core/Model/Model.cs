@@ -10,9 +10,11 @@ using OpenTK.Graphics.OpenGL;
 using StarterKit;
 using System.Threading;
 using Moonfish.Core.Model.Adjacency;
+using Moonfish.Core.Model.Wavefront;
 
 namespace Moonfish.Core.Model
 {
+    
     public class Mesh
     {
         ShaderGroup[] ShaderGroups;
@@ -219,8 +221,8 @@ namespace Moonfish.Core.Model
             MemoryStream stream = new MemoryStream(buffer);
             StreamReader reader = new StreamReader(stream);
 
-            List<Moonfish.Core.Model.WavefrontObject.Object> objects = new List<Moonfish.Core.Model.WavefrontObject.Object>();
-            List<Moonfish.Core.Model.WavefrontObject.Face> faces = new List<Moonfish.Core.Model.WavefrontObject.Face>();
+            List<WavefrontObject.Object> objects = new List<WavefrontObject.Object>();
+            List<WavefrontObject.Face> faces = new List<WavefrontObject.Face>();
             
             List<ushort> facestream = new List<ushort>();
 
@@ -229,9 +231,8 @@ namespace Moonfish.Core.Model
             List<Vector3> normals = new List<Vector3>();
 
             bool default_object = true;
-            int current_object_index = 0;
 
-            objects.Add(new Moonfish.Core.Model.WavefrontObject.Object());
+            objects.Add(new WavefrontObject.Object());
 
             Log.Info("Begin parsing Wavefront Object data from buffer");
             while(!reader.EndOfStream)
@@ -250,29 +251,31 @@ namespace Moonfish.Core.Model
                     {
                         Log.Warn(@"Support for multiple wavefront objects per mesh not implemented.
                                    Meshes can only accept a single wavefront object. Continuing, but only using first object!");
-                        
-                        throw new Exception("jk :D");
+                        break;
                     }
                 }
                 else if (line.StartsWith("v "))
                 {
-                    string[] items = line.Split(' ');
-                    vertex_coords.Add(new Vector3(float.Parse(items[1]), float.Parse(items[2]), float.Parse(items[3])));
+                    Vector3 vertex;
+                    if (!WavefrontExtensions.TryParseVector3(out vertex, line)) return false;
+                    vertex_coords.Add(vertex);
                 }
                 else if (line.StartsWith("vt "))
                 {
-                    string[] items = line.Split(' ');
-                    texture_coords.Add(new Vector2(float.Parse(items[1]), float.Parse(items[2])));
+                    Vector2 texcoord;
+                    if (!WavefrontExtensions.TryParseVector2(out texcoord, line)) return false;
+                    texture_coords.Add(texcoord);
                 }
                 else if (line.StartsWith("vn "))
                 {
-                    string[] items = line.Split(' ');
-                    normals.Add(new Vector3(float.Parse(items[1]), float.Parse(items[2]), float.Parse(items[3])));
+                    Vector3 normal;
+                    if (!WavefrontExtensions.TryParseVector3(out normal, line)) return false;
+                    normals.Add(normal);
                 }
                 else if (line.StartsWith("f "))
                 {
-                    Moonfish.Core.Model.WavefrontObject.Face face;
-                    if (!Moonfish.Core.Model.WavefrontObject.Face.TryParse(line, out face))
+                    WavefrontObject.Face face;
+                    if (!WavefrontObject.Face.TryParse(line, out face))
                     {
                         Log.Error(string.Format("Error parsing line: {0}", line));
                         return false;

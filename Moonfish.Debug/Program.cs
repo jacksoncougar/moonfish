@@ -36,8 +36,8 @@ namespace Moonfish.Debug
             //mesh_data.Load(raw_data, tag.Sections[0].GetSectionResources(), tag.GetBoundingBox().GetCompressionRanges());
             //mesh_data.Show();
             //mesh_data.Serialize();
-            mesh_data.ImportFromWavefront(@"D:\halo_2\monkey.obj");
-            mesh_data.Show();
+            if (mesh_data.ImportFromWavefront(@"D:\halo_2\monkey.obj"))
+                mesh_data.Show();
             //mesh_data.Load(raw_data, tag.Sections[0].GetSectionResources(), tag.GetBoundingBox().GetCompressionRanges());
             
             return;

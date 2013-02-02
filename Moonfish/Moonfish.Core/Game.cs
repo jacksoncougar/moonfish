@@ -69,41 +69,33 @@ namespace StarterKit
             draw_strip = true;
         }
 
-
-        internal void RegenerateStrips()
+        public QuickModelView(Moonfish.Core.Model.Mesh mesh)
         {
-            //Random random = new Random(DateTime.Now.Millisecond);
-            //var temp_strip = stripper.GenerateStripArray(random.Next(stripper.TriangleCount));
-            //if (temp_strip.Length < strips.Length)
-            //{
-            //    strips = temp_strip;
-            //    byte[] rgb = new byte[3];
-            //    for (int i = 0; i < strips.Length; i++)
-            //    {
-            //        random.NextBytes(rgb);
-            //        strips[i].colour = new Color4(rgb[0], rgb[1], rgb[2], 255);
-            //    }
-            //    SelectedStrip = SelectedStrip > strips.Length ? strips.Length : SelectedStrip;
-            //}
+            // TODO: Complete member initialization
+            this.mesh = mesh;
+            strips = new TriangleStrip[] { new TriangleStrip() { colour = Color4.Red, indices = mesh.Indices } };
+            SelectedStrip = 0;
+            draw_strip = true;
         }
         
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
 
-            GL.ClearColor(0.1f, 0.2f, 0.5f, 0.0f);
+            GL.ClearColor(0.1f, 0.2f, 0.5f, 0.0f); 
+            GL.PointSize(2.0f);
 
+            GL.Enable(EnableCap.CullFace);
             GL.Enable(EnableCap.DepthTest);
             GL.Enable(EnableCap.ColorMaterial);
-            GL.Enable(EnableCap.Lighting);
-            GL.Enable(EnableCap.Light0);
-            GL.EnableClientState(ArrayCap.NormalArray);
-
             GL.ColorMaterial(MaterialFace.FrontAndBack, ColorMaterialParameter.AmbientAndDiffuse);
             float[] lightPose1 = { -4f, 2.0f, 0.0f, 1.0f };
             float[] lightColor1 = { .5f, 0.5f, 0.5f, 0.0f };
             GL.Light(LightName.Light0, LightParameter.Diffuse, lightColor1);
             GL.Light(LightName.Light0, LightParameter.Position, lightPose1);
+
+            GL.Disable(EnableCap.Lighting);
+            GL.DisableClientState(ArrayCap.NormalArray);
         }
 
         /// <summary>
@@ -144,7 +136,7 @@ namespace StarterKit
             }
             if (Keyboard[Key.End])
             {
-                RegenerateStrips();
+                //RegenerateStrips();
             }
             if (Keyboard[Key.W] || Keyboard[Key.Up])
                 Zoom -= zoom_step;
@@ -177,20 +169,24 @@ namespace StarterKit
             GL.LoadMatrix(ref modelview);
 
             GL.Rotate(Yaw, Vector3.UnitZ);
-            GL.PopMatrix();
 
             if (draw_strip)
             {
-                GL.Disable(EnableCap.Lighting);
-                GL.DisableClientState(ArrayCap.NormalArray);
-                GL.PointSize(2.0f);
                 GL.Begin(BeginMode.Points);
-
-                GL.Color4(Color4.Red);
+                GL.Color4(Color4.White);
                 GL.Vertex3(new Vector3(0, 0, 0));
                 for (uint i = 0; i < mesh.Vertices.Length; i++)
                 {
-                    GL.Color4(Color4.Purple);
+                    GL.Color4(Color4.Yellow);
+                    GL.Vertex3(mesh.Vertices[i].Position);
+                }
+                GL.End(); 
+                GL.Begin(BeginMode.LineStrip);
+                GL.Color4(Color4.White);
+                GL.Vertex3(new Vector3(0, 0, 0));
+                for (uint i = 0; i < mesh.Vertices.Length; i++)
+                {
+                    GL.Color4(Color4.Yellow);
                     GL.Vertex3(mesh.Vertices[i].Position);
                 }
                 GL.End();
@@ -205,28 +201,7 @@ namespace StarterKit
                     }
                     GL.End();
                 }
-                //GL.Begin(BeginMode.TriangleStrip);
-                //    for (uint i = 0; i < strips[SelectedStrip].indices.Length; i++)
-                //    {
-                //        GL.PointSize(4.0f);
-                //        GL.Color4(Color4.Red);
-                //        GL.Vertex3(mesh.Vertices[strips[SelectedStrip].indices[i]].Position);
-                //    }
-                //GL.End();
             }
-            else
-            {
-                //GL.Begin(BeginMode.TriangleStrip);
-                //for (uint i = 0; i < mesh.Indices.Length; i++)
-                //{
-                //    GL.Color4(Color4.Purple);
-                //    GL.Vertex3(mesh.Vertices[mesh.Indices[i]].Position);
-                //    GL.Normal3(mesh.Vertices[mesh.Indices[i]].Normal);
-                //}
-                //GL.End();
-            }
-            //GL.DrawElements(BeginMode.TriangleStrip, mesh.Indices.Length, DrawElementsType.UnsignedShort, mesh.Indices);
-
             SwapBuffers();
         }
     }

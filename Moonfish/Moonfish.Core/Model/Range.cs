@@ -20,7 +20,7 @@ namespace Moonfish.Core.Model
         internal static Range Include(Range x, float p)
         {
             float min = x.min;
-            float max = x.min;
+            float max = x.max;
             if (x.min > p) min = p;
             if (x.max < p) max = p;
             return new Range(min, max);

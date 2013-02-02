@@ -1,4 +1,5 @@
 ﻿using OpenTK;
+using System.IO;
 
 namespace Moonfish.Core.Model
 {
@@ -36,7 +37,7 @@ namespace Moonfish.Core.Model
         {
             get
             {
-                ushort radix = (ushort)(bits >> 00 & 0x7FF);                // retrieve the bits of this componant (first 11 bits)
+                ushort radix = (ushort)(bits >> 11 & 0x7FF);                // retrieve the bits of this componant (first 11 bits)
                 if (radix == 0x7FF || radix == 0) return 0;                 // two special cases for zero: return zero on either
                 if ((radix & 0x400) == 0x400)                               // if sign bit is set, output should be negetive
                     return -(float)(~(radix) & 0x3FF) * xy_max_inverse;     /* return the radix 'ones compliment' trimming the sign bit
@@ -56,7 +57,7 @@ namespace Moonfish.Core.Model
         {
             get
             {
-                ushort radix = (ushort)(bits >> 00 & 0x3FF);                // retrieve the bits of this componant (first 10 bits)
+                ushort radix = (ushort)(bits >> 22 & 0x3FF);                // retrieve the bits of this componant (first 10 bits)
                 if (radix == 0x7FF || radix == 0) return 0;                 // two special cases for zero: return zero on either
                 if ((radix & 0x200) == 0x200)                               // if sign bit is set, output should be negetive
                     return -(float)(~(radix) & 0x1FF) * z_max_inverse;     /* return the radix 'ones compliment' trimming the sign bit
@@ -75,17 +76,12 @@ namespace Moonfish.Core.Model
 
         public Vector3t(uint value)
         {
-            if (value == 2097152)
-            {
-                int o = 0;
-            }
             bits = value;
-            //float g = Y;
-            var t = new Vector3(X,Y,Z);
-            if (System.Math.Round(t.Length, 4) != 1)
-            {
-                int ge = 0;
-            }
+        #if DEBUG
+            Vector3 test = new Vector3(X, Y, Z);
+            if (test.Length != 1) 
+                throw new InvalidDataException();
+        #endif
         }
 
         public static explicit operator Vector3(Vector3t tvector)
@@ -95,6 +91,10 @@ namespace Moonfish.Core.Model
         public static explicit operator Vector3t(Vector3 vector3)
         {
             return new Vector3t() { X = vector3.X, Y = vector3.Y, Z = vector3.Z };
+        }
+        public static explicit operator uint(Vector3t tvector)
+        {
+            return tvector.bits;
         }
 
         public override string ToString()

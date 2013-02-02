@@ -15,7 +15,6 @@ namespace Moonfish.Core.Model
 {
     public class Mesh
     {
-        Vector3t t = new Vector3t(0xFFC007FF);
         ShaderGroup[] ShaderGroups;
         public ushort[] Indices;
         public DefaultVertex[] Vertices;
@@ -164,7 +163,7 @@ namespace Moonfish.Core.Model
                     writer.Write(Deflate(x, vertex.Position.X));
                     writer.Write(Deflate(y, vertex.Position.Y));
                     writer.Write(Deflate(z, vertex.Position.Z));
-                }               // pad to word boundary
+                }
                 writer.WritePadding(4);
             }
             writer.WriteFourCC("rsrc");
@@ -183,10 +182,24 @@ namespace Moonfish.Core.Model
                 }              
             }
             writer.WriteFourCC("rsrc");
-            // TODO: write write compressed b,t,n vectors here
+            foreach (var vertex in this.Vertices)
+            {
+                writer.Write((uint)vertex.Normal);
+                writer.Write(0);
+                writer.Write(0);
+            }
             writer.WriteFourCC("rsrc");
             writer.Write(0);                // default bone-map (no bones)
             writer.WriteFourCC("blkf");
+
+            // debug dump
+            #if DEBUG
+            using (var file = File.OpenWrite(@"D:\halo_2\model_raw.bin"))
+            {
+                file.Write(buffer.ToArray(), 0, (int)buffer.Length);
+            }
+            #endif
+            // end debug dump
 
             // 2. create a sections meta file for this, a bounding box, heck a whole mesh, why not.
         }
@@ -300,36 +313,16 @@ namespace Moonfish.Core.Model
             {
                 Vector3 position = new Vector3(BitConverter.ToInt16(coord_raw, i * coord_size), BitConverter.ToInt16(coord_raw, (i * coord_size) + 2), BitConverter.ToInt16(coord_raw, (i * coord_size) + 4));
                 Range int16_range = new Range(short.MinValue, short.MaxValue);
-                position.X = Project(position.X, compression_ranges.x);
-                position.Y = Project(position.Y,  compression_ranges.y);
-                position.Z = Project(position.Z,  compression_ranges.z);
+                position.X = Inflate(position.X, compression_ranges.x);
+                position.Y = Inflate(position.Y,  compression_ranges.y);
+                position.Z = Inflate(position.Z,  compression_ranges.z);
                 Vector2 texcoord = new Vector2(BitConverter.ToInt16(coord_raw, i * coord_size), BitConverter.ToInt16(coord_raw, i + 1 * coord_size));
-                texcoord.X = Project(position.X,  compression_ranges.u1);
-                texcoord.Y = Project(position.Y,  compression_ranges.v1);
+                texcoord.X = Inflate(position.X,  compression_ranges.u1);
+                texcoord.Y = Inflate(position.Y,  compression_ranges.v1);
                 vertices[i] = new DefaultVertex() { Position = position, TextureCoordinates = texcoord, Normal = new Vector3t(BitConverter.ToUInt32(vector_raw, i * vector_size)) };
             }
             return vertices;
         }
-
-        //Vector3 ExpandVector(int compressed_vector_data)
-        //{
-        //    int CompressedData = compressed_vector_data;
-
-        //    short msb_radix = (short)((compressed_vector_data >> 00 & 0x7FF)) ;
-        //    msb_radix = (msb_radix & 0x400) == 0x400 ? (short)-((~msb_radix) & 0x000007FF) : msb_radix;
-
-        //    short mid_radix = (short)((compressed_vector_data >> 11 & 0x7FF));
-        //    mid_radix = (mid_radix & 0x400) == 0x400 ? (short)-((~mid_radix) & 0x000007FF) : mid_radix;
-
-        //    short lsb_radix = (short)((compressed_vector_data >> 22 & 0x3FF));
-        //    lsb_radix = (lsb_radix & 0x200) == 0x200 ? (short)-((~lsb_radix) & 0x000003FF) : lsb_radix;
-
-        //    float x = (float)msb_radix / (float)0x3FF;
-        //    float y = (float)mid_radix / (float)0x3FF;
-        //    float z = (float)lsb_radix / (float)0x1FF;
-            
-        //    return new Vector3(x, y, x);
-        //}
 
         /// <summary>
         /// Takes a value and converts it into a range from 0.0 to 1.0 stored as a ushort
@@ -345,8 +338,7 @@ namespace Moonfish.Core.Model
             var ratio = value / input_range.max;
             return (ushort)(max_ushort * ratio);
         }
-
-        float Project(float value_in_range,  Range range)
+        float Inflate(float value_in_range,  Range range)
         {
             const float Max = 1.0f / ushort.MaxValue;
             const float Half = short.MaxValue;
@@ -392,8 +384,8 @@ namespace Moonfish.Core.Model
 
         public void Show()
         {
-            //QuickModelView render_window = new QuickModelView(this);
-            //render_window.Run();
+            QuickModelView render_window = new QuickModelView(this);
+            render_window.Run();
         }
     }
 }

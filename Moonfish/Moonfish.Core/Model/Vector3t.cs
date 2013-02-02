@@ -15,10 +15,35 @@ namespace Moonfish.Core.Model
         public float X
         {
             get
-            {
-                short lsb_radix = (short)((bits >> 00 & 0x7FF));
-                if (lsb_radix == 0x400) return -1;
-                return ((lsb_radix & 0x400) == 0x400 ? (float)-((~lsb_radix & 0x3FF)) * -z_max_inverse : (float)(lsb_radix & 0x1FF) * z_max_inverse);
+            {   //lets try twos compliment?
+                ushort radix = (ushort)((bits >> 00 & 0x7FF));
+                //if ((radix & 0x400) == 0x400) //negetive value
+                //{
+                    //what if there is not sign bit? would that make more sense?
+                    //x7ff would be max_value -
+                    //x400 would be... half value +//?????
+                    //3ff would be less than half
+                    //00 would be zero, then we offset by k, k? where k is half the range of values
+                    //0x7FF should result in ;must be negetive max?
+                    //0x400 should result in -1? 0?; positive max?
+                    // what should result in 1? 0x3FF??
+                    // what should result in 0? 0x000??
+                //if (radix == 0x7FF) return -1;
+                ////these values are negetive
+                //if (radix == 0x400) return 1;
+                ////these values are positve
+                //if (radix == 0) return 0;
+                if (radix == 0x7FF || radix == 0) return 0;//true? else return the value with a sign 
+                return (float)(radix - 0x3FF) / (float)0x3FF;
+                //}
+                //else
+                //{
+                //    short rr = (short)(radix);
+                //    return rr * xy_max_inverse;
+                //}
+                //if ((radix & 0x400) == 0x400) return -((~radix) & 0x000007FF) * xy_max_inverse;
+                ////if ((radix & 0x400) == 0x400) return (float)(~(radix & 0x3FF) + 1) * xy_max_inverse;
+                //else return (float)(radix & 0x3FF) * xy_max_inverse;
             }
             set
             {
@@ -31,9 +56,9 @@ namespace Moonfish.Core.Model
         {
             get
             {
-                short mid_radix = (short)((bits >> 11 & 0x7FF));
-                if (mid_radix == 0x400) return -1;
-                return ((mid_radix & 0x400) == 0x400 ? (float)-((~mid_radix & 0x3FF)) * -z_max_inverse : (float)(mid_radix & 0x1FF) * z_max_inverse);
+                short radix = (short)((bits >> 11 & 0x7FF));
+                if (radix == 0x7FF || radix == 0) return 0;//true? else return the value with a sign 
+                return (float)(radix - 0x3FF) / (float)0x3FF;
             }
             set
             {
@@ -46,9 +71,9 @@ namespace Moonfish.Core.Model
         {
             get
             {
-                short msb_radix = (short)((bits >> 22 & 0x3FF));
-                if (msb_radix == 0x200) return -1;
-                return ((msb_radix & 0x200) == 0x200 ? (float)-((~msb_radix & 0x3FF)) * -z_max_inverse : (float)(msb_radix & 0x1FF) * z_max_inverse);
+                short radix = (short)((bits >> 22 & 0x3FF));
+                if (radix == 0x3FF || radix == 0) return 0;//true? else return the value with a sign 
+                return (float)(radix - 0x1FF) / (float)0x1FF;
             }
             set
             {
@@ -65,7 +90,12 @@ namespace Moonfish.Core.Model
                 int o = 0;
             }
             bits = value;
-            float g = Y;
+            //float g = Y;
+            var t = new Vector3(X,Y,Z);
+            if (System.Math.Round(t.Length, 4) != 1)
+            {
+                int ge = 0;
+            }
         }
 
         public static explicit operator Vector3(Vector3t tvector)

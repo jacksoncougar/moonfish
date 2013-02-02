@@ -22,12 +22,16 @@ namespace Moonfish.Debug
             //Log.OnLog  = new Log.LogMessageHandler(
             //Moonfish.Core.Raw.RadixSorter radsort = new Core.Raw.RadixSorter();
             //return;
-            MapStream map = new MapStream(@"C:\Users\stem\Documents\zanzibar.map");
-            model tag = (model)map.GetTag(map.FindFirst((tag_class)"mode", "dumpster"));
+            MapStream map = new MapStream(@"C:\Users\stem\Documents\headlong.map");
+            model tag = (model)map.GetTag(map.FindFirst((tag_class)"mode", "crate_multi_single"));
             var raw = tag.Sections[0].GetRawPointer();
             map.Position = raw.Address;
             byte[] raw_data = new byte[raw.Length];
             map.Read(raw_data, 0, raw_data.Length);
+            //using (BinaryWriter writer = new BinaryWriter(File.Create(@"D:\halo_2\box.bin")))
+            //{
+            //    writer.Write(raw_data);
+            //}
             Mesh mesh_data = new Mesh();
             mesh_data.Load(raw_data, tag.Sections[0].GetSectionResources(), tag.GetBoundingBox().GetCompressionRanges());
             //mesh_data.Show();

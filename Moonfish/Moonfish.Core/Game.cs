@@ -86,6 +86,7 @@ namespace StarterKit
             GL.PointSize(2.0f);
 
             GL.Enable(EnableCap.CullFace);
+            GL.CullFace(CullFaceMode.Back);
             GL.Enable(EnableCap.DepthTest);
             GL.Enable(EnableCap.ColorMaterial);
             GL.ColorMaterial(MaterialFace.FrontAndBack, ColorMaterialParameter.AmbientAndDiffuse);
@@ -115,6 +116,15 @@ namespace StarterKit
             GL.LoadMatrix(ref projection);
         }
 
+        bool EnableLighting()
+        {
+            GL.Enable(EnableCap.Lighting);
+            GL.Enable(EnableCap.Light0);
+            GL.Enable(EnableCap.NormalArray);
+            //mesh.GenerateNormals();
+            return true;
+        }
+
         public override void Exit()
         {
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
@@ -136,7 +146,7 @@ namespace StarterKit
             }
             if (Keyboard[Key.End])
             {
-                //RegenerateStrips();
+                EnableLighting();
             }
             if (Keyboard[Key.W] || Keyboard[Key.Up])
                 Zoom -= zoom_step;
@@ -172,6 +182,7 @@ namespace StarterKit
 
             if (draw_strip)
             {
+                // draw vertices as points
                 GL.Begin(BeginMode.Points);
                 GL.Color4(Color4.White);
                 GL.Vertex3(new Vector3(0, 0, 0));
@@ -181,23 +192,53 @@ namespace StarterKit
                     GL.Vertex3(mesh.Vertices[i].Position);
                 }
                 GL.End(); 
+                //draw edges 
                 GL.Begin(BeginMode.LineStrip);
-                GL.Color4(Color4.White);
-                GL.Vertex3(new Vector3(0, 0, 0));
-                for (uint i = 0; i < mesh.Vertices.Length; i++)
+                for (uint i = 0; i < strips[0].indices.Length - 1; i++)
                 {
-                    GL.Color4(Color4.Yellow);
-                    GL.Vertex3(mesh.Vertices[i].Position);
+                    if (strips[0].indices[i] == strips[0].indices[i + 1]) continue;
+                    GL.Color4(Color4.Black);
+                    GL.Vertex3(mesh.Vertices[strips[0].indices[i]].Position);
                 }
                 GL.End();
+                //draw shaded tris
+                GL.CullFace(CullFaceMode.Back);
                 for (uint i = 0; i < SelectedStrip; i++)
                 {
                     GL.Begin(BeginMode.TriangleStrip);
                     for (uint j = 0; j < strips[i].indices.Length; j++)
                     {
                         GL.PointSize(4.0f);
-                        GL.Color4(strips[i].colour);
+                        GL.Color4(Color4.Gray);
                         GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position);
+                        GL.Normal3((Vector3)mesh.Vertices[strips[i].indices[j]].Normal);
+                    }
+                    GL.End();
+                }
+                //draw shaded tris
+                GL.CullFace(CullFaceMode.Front);
+                for (uint i = 0; i < SelectedStrip; i++)
+                {
+                    GL.Begin(BeginMode.TriangleStrip);
+                    for (uint j = 0; j < strips[i].indices.Length; j++)
+                    {
+                        GL.PointSize(4.0f);
+                        GL.Color4(Color4.Red);
+                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position);
+                        GL.Normal3((Vector3)mesh.Vertices[strips[i].indices[j]].Normal);
+                    }
+                    GL.End();
+                }
+                //draw normals
+                for (uint i = 0; i < SelectedStrip; i++)
+                {
+                    GL.Begin(BeginMode.Lines);
+                    for (uint j = 0; j < strips[i].indices.Length; j++)
+                    {
+                        GL.Color4(Color4.Red);
+                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position);
+                        GL.Color4(Color4.Green);
+                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position + (Vector3)mesh.Vertices[strips[i].indices[j]].Normal * 0.15f);
                     }
                     GL.End();
                 }

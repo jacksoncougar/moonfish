@@ -290,20 +290,53 @@ namespace Moonfish.Core.Model.Adjacency
             MemoryStream buffer = new MemoryStream();
             BinaryWriter writer = new BinaryWriter(buffer);
             bool first = true;
+
+            /*  >>1203324         
+             *  1 2 0  CC     
+             *  2 0 3  CCW
+             *  0 3 3  DEGEN CW               //0 3 4 <- bad 
+             *  3 3 2  DEGEN CCW
+             *  3 2 4  CW            So if the strip is even ending add a single extra index to concate?
+             *  
+             *  1 --- 2 --- 4
+             *  |  /  |  /
+             *  0 --- 3
+             *  
+             * >>1203 + 798
+             *    1 2 0 + 
+             *    2 0 3 -  <- last valid triangle for this strip
+             *  ͯ  0 3 3 +  <- inject last index of first strip      
+             *  ͯ  3 3 7 -  <- inject first index of second strip
+             *  ͯ  3 7 7 +  <- inject again
+             *  ͯ  7 7 8 -  <- add first valid index
+             *    7 8 9 +  <- first valid triangle of second strip
+             *    7 8 9 +
+             * 
+             *  1 --- 2    7 --- 8  //789
+             *  |  /  |    |  /
+             *  0 --- 3    9
+             */
+            //01234 ->+012 +123
+            bool even = false;
             foreach (var strip in strips)
             {
                 if (!first)
                 {
                     writer.Write(strip.indices[0]);
+                    writer.Write(strip.indices[0]);
+                    if (even) writer.Write(strip.indices[0]);// add a degen
+                    //else { writer.Write(strip.indices[0]); writer.Write(strip.indices[0]); }
                 }
-                else
-                    first = false;
+                else { first = false; }
                 foreach (ushort index in strip.indices)
                 {
                     writer.Write((ushort)index);
                 }
-                writer.Write((ushort)strip.indices[strip.indices.Length - 1]);
-            } buffer.SetLength(buffer.Length - 2);
+                writer.Write(strip.indices[strip.indices.Length - 1]);
+                even = strip.indices.Length % 2 == 0;
+            } //buffer.SetLength(buffer.Length - 2);
+
+
             ushort[] return_buffer = new ushort[buffer.Length/2];
             Buffer.BlockCopy(buffer.ToArray(), 0, return_buffer, 0, (int)buffer.Length);
             return return_buffer;

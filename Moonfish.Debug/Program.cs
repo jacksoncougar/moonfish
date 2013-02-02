@@ -23,7 +23,7 @@ namespace Moonfish.Debug
             //Moonfish.Core.Raw.RadixSorter radsort = new Core.Raw.RadixSorter();
             //return;
             MapStream map = new MapStream(@"C:\Users\stem\Documents\headlong.map");
-            model tag = (model)map.GetTag(map.FindFirst((tag_class)"mode", "crate_multi_single"));
+            model tag = (model)map.GetTag(map.FindFirst((tag_class)"mode", "bridge_light"));
             var raw = tag.Sections[0].GetRawPointer();
             map.Position = raw.Address;
             byte[] raw_data = new byte[raw.Length];
@@ -33,11 +33,11 @@ namespace Moonfish.Debug
             //    writer.Write(raw_data);
             //}
             Mesh mesh_data = new Mesh();
-            mesh_data.Load(raw_data, tag.Sections[0].GetSectionResources(), tag.GetBoundingBox().GetCompressionRanges());
-            mesh_data.Show();
-            mesh_data.Serialize();
+            //mesh_data.Load(raw_data, tag.Sections[0].GetSectionResources(), tag.GetBoundingBox().GetCompressionRanges());
             //mesh_data.Show();
-            //mesh_data.ImportFromWavefront(@"D:\halo_2\monkey.obj");
+            //mesh_data.Serialize();
+            mesh_data.ImportFromWavefront(@"D:\halo_2\monkey.obj");
+            mesh_data.Show();
             //mesh_data.Load(raw_data, tag.Sections[0].GetSectionResources(), tag.GetBoundingBox().GetCompressionRanges());
             
             return;

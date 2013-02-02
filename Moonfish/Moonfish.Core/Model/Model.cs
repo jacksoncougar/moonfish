@@ -302,6 +302,7 @@ namespace Moonfish.Core.Model
             QuickModelView quick_view = new QuickModelView(this, stripper);
             quick_view.Run();
             this.Indices = quick_view.GetStrip();
+            this.GenerateNormals();
             return true;
         }
 
@@ -343,6 +344,41 @@ namespace Moonfish.Core.Model
             const float Max = 1.0f / ushort.MaxValue;
             const float Half = short.MaxValue;
             return (((value_in_range + Half) * Max) * (range.max - range.min)) + range.min;
+        }
+
+        /// <summary>
+        /// Generating from a list this way is not grande.
+        /// </summary>
+        /// <returns></returns>
+        internal bool GenerateNormals()
+        {
+            int ref0, ref1, ref2;
+            bool winding = false;
+            if (Indices == null || Vertices == null) return false;
+            for (int i = 0; i < Indices.Length - 2; i++)
+            {
+                if (winding)
+                {
+                    ref0 = Indices[i + 0];
+                    ref1 = Indices[i + 1];
+                    ref2 = Indices[i + 2];
+                }
+                else
+                {
+                    ref0 = Indices[i + 0];
+                    ref2 = Indices[i + 1];
+                    ref1 = Indices[i + 2];
+                }
+                Vector3 vec1 = Vertices[ref2].Position - Vertices[ref0].Position;
+                Vector3 vec2 = Vertices[ref1].Position - Vertices[ref0].Position;
+                Vector3 normal = Vector3.Cross(vec1, vec2);
+                normal.Normalize();
+                Vertices[ref0].Normal = (Vector3t)normal;
+                Vertices[ref1].Normal = (Vector3t)normal;
+                Vertices[ref2].Normal = (Vector3t)normal;
+                winding = !winding;
+            }
+            return true;
         }
 
         public struct DefaultVertex

@@ -77,11 +77,13 @@ namespace Moonfish.Core.Model
         public Vector3t(uint value)
         {
             bits = value;
-        #if DEBUG
-            Vector3 test = new Vector3(X, Y, Z);
-            if (test.Length != 1) 
+#if DEBUG
+            Vector3 test = new Vector3(X, Y, Z); float rounded;
+            if ((rounded = (float)System.Math.Round(test.Length, 2)) != 1)
+            {
                 throw new InvalidDataException();
-        #endif
+            }
+#endif
         }
 
         public static explicit operator Vector3(Vector3t tvector)

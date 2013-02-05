@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Moonfish.Core.Definitions;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -128,16 +129,61 @@ namespace Moonfish.Core
                 item.PointTo(mem);
             }
         }
+
+        void IPointable.CopyTo(Stream stream)
+        {
+                                                                                            ////        This code is bad and I feel bad.                            ////
+            this.first_element_address_ = (int)stream.Position;                             // 1. Set the element address to this memory position
+            foreach (var item in this)                                                      // 2. Write out all the elements to reserve thier memory space.
+            {
+                stream.Write(item.GetMemory().ToArray(), 0, (item as IPointable).SizeOf);
+            }
+            foreach (var item in this)                                                      // 3. foreach element 'copyto' to allow the children blocks to reserve space
+            {
+                item.CopyTo(stream);
+            }                                                                               // 4.a this should also allow all children blocks to bubble up values
+            var last_address = stream.Position;
+            stream.Position = this.first_element_address_;                                  // <- Go back to our reserved memory
+            foreach (var item in this)                                                      // 5. Write out all the elements again to update bubbled values
+            {
+                stream.Write(item.GetMemory().ToArray(), 0, (item as IPointable).SizeOf);
+            }
+            stream.Position = last_address;                                                 //restore last memory offset...
+            if (this.Count == 0) this.first_element_address_ = 0;                           //<- if there's zero elements we should not have an address to anything...
+            this.parent.SetField(this);                                                     // 6. set field to allow bubble-up of values
+            
+        }
     }
 
-    public abstract class TagBlock : IStructure, IPointable, IEnumerable<TagBlockField>, IEnumerable<string_id>
+    public abstract class TagBlock : IStructure, IPointable, IEnumerable<TagBlockField>, IEnumerable<StringID>
     {
         const int DefaultAlignment = 4;
-        private readonly int size;
+        protected readonly int size;
 
         protected readonly int alignment = DefaultAlignment;
         protected MemoryStream memory_;
         protected readonly List<TagBlockField> fixed_fields;
+
+        public void SetDefinitionData(ITagDefinition definition)
+        {
+            var buffer = definition.ToArray();
+            this.memory_.Position = 0;
+            this.memory_.Write(buffer, 0, buffer.Length);
+
+            for (var i = 0; i < fixed_fields.Count; i++)
+            {
+                byte[] field_data = new byte[fixed_fields[i].Object.SizeOfField];
+                this.memory_.Position = fixed_fields[i].FieldOffset;
+                this.memory_.Read(field_data, 0, field_data.Length);
+                fixed_fields[i].Object.SetFieldData(field_data);
+            }
+        }
+        public T GetDefinition<T>() where T : ITagDefinition, new()
+        {
+            var definition = new T();
+            definition.FromArray(this.memory_.ToArray());
+            return definition;
+        }
 
         internal int tagblock_id = -1;
         internal int this_pointer = 0;
@@ -154,6 +200,7 @@ namespace Moonfish.Core
             // assign size of this tag_block
             this.size = size;
             this.alignment = alignment;
+            this.memory_ = new MemoryStream(new byte[this.size], 0, this.size, true, true);//*
             this.fixed_fields = new List<TagBlockField>(fields);
 
             int field_offset = 0;
@@ -237,12 +284,10 @@ namespace Moonfish.Core
             get { return this.size; }
         }
 
-
         int IPointable.Alignment
         {
             get { return this.alignment; }
         }
-
 
         void IPointable.PointTo(Memory mem)
         {
@@ -259,16 +304,33 @@ namespace Moonfish.Core
             }
         }
 
+        void IPointable.CopyTo(Stream output)
+        {
+            foreach (var field in fixed_fields)
+            {
+                var nested_tagblock = field.Object as IPointable;
+                if (nested_tagblock != null)
+                {
+                    nested_tagblock.CopyTo(output);
+                }
+                (this as IStructure).SetField(field.Object);
+                //byte[] field_data = new byte[field.Object.SizeOfField];
+                //this.memory_.Position = field.FieldOffset;
+                //this.memory_.Read(field_data, 0, field_data.Length);
+                //field.Object.SetFieldData(field_data);                
+            }
+        }
+
         /// <summary>
         /// 
         /// </summary>
         /// <returns>Returns a sequence of ALL string_ids in ALL nested tag_blocks supporting string_id enumeration</returns>
-        IEnumerator<string_id> IEnumerable<string_id>.GetEnumerator()
+        IEnumerator<StringID> IEnumerable<StringID>.GetEnumerator()
         {
             foreach (TagBlockField field in this.fixed_fields)
             {
-                if (field.Object is string_id)
-                    yield return (string_id)field.Object;
+                if (field.Object is StringID)
+                    yield return (StringID)field.Object;
                 else
                 {
                     // if this is a collection of tagblocks, enumerate each item
@@ -276,7 +338,7 @@ namespace Moonfish.Core
                     if (tagblock_interface__ != null) foreach (var item in tagblock_interface__)
                         {
                             // if this item supports string_id enumeration, enumerate each string_id
-                            var stringid_interface__ = field.Object as IEnumerable<string_id>;
+                            var stringid_interface__ = field.Object as IEnumerable<StringID>;
                             if (stringid_interface__ != null) foreach (var string_id in stringid_interface__)
                                 {
                                     // yield each string
@@ -286,6 +348,7 @@ namespace Moonfish.Core
                 }
             }
         }
+
     }
 
     public abstract class FixedArray<T> : List<T>, IField, IEnumerable<T>
@@ -379,6 +442,12 @@ namespace Moonfish.Core
             mem.instance_table.Add(new Memory.mem_ref() { client = this, address = this.first_element_address_, count = this.count_, type = typeof(byte), external = !mem.Contains(this) });
             this.memory_ = mem.getmem(this);
         }
+
+
+        void IPointable.CopyTo(Stream memory)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     [System.AttributeUsage(AttributeTargets.Class,
@@ -405,7 +474,7 @@ namespace Moonfish.Core
 
     /// <summary>
     /// Wrapper structure for linking an IField object with a field offset value
-    /// </summary>    
+    /// </summary>    C:\Users\stem\Documents\Visual Studio 2012\Projects\moonfish\Moonfish\Moonfish.Core\TagBlockDefinition.cs
     public struct TagBlockField
     {
         public readonly IField Object;

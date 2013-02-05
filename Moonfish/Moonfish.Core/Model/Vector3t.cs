@@ -1,8 +1,26 @@
 ﻿using OpenTK;
+using System;
 using System.IO;
 
 namespace Moonfish.Core.Model
 {
+    /// <summary>
+    /// My hacky attempt at unit testing :)
+    /// </summary>
+    public static class UT_Vector3t
+    {
+        public static bool RunTests() { return false; }
+        static UT_Vector3t()
+        {
+            if (Vector3.UnitX != (Vector3)(Vector3t)Vector3.UnitX) throw new Exception();
+            if (Vector3.UnitY != (Vector3)(Vector3t)Vector3.UnitY) throw new Exception();
+            if (Vector3.UnitZ != (Vector3)(Vector3t)Vector3.UnitZ) throw new Exception();
+            if (-Vector3.UnitX != (Vector3)(Vector3t)(-Vector3.UnitX)) throw new Exception();
+            if (-Vector3.UnitY != (Vector3)(Vector3t)(-Vector3.UnitY)) throw new Exception();
+            if (-Vector3.UnitZ != (Vector3)(Vector3t)(-Vector3.UnitZ)) throw new Exception();
+        }
+    }
+
     /// <summary>
     /// A one/third vector where each componant is composed of 11 or 10 bits
     /// A single bit for sign, and the remainder used for magnitude (domain = {0.0 => 1.0} )
@@ -29,7 +47,7 @@ namespace Moonfish.Core.Model
             set
             {
                 bits &= ~(uint)0x7FF;
-                var x_bits = (uint)(value < 0 ? 0x400 | (uint)(-value * 0x3FF) & 0x3FF : (uint)(value * 0x3FF) & 0x3FF);
+                var x_bits = (uint)(value < 0 ? 0x400 | ~(uint)(-value * 0x3FF) & 0x7FF : (uint)(value * 0x3FF) & 0x3FF);
                 bits |= x_bits;
             }
         }
@@ -49,7 +67,7 @@ namespace Moonfish.Core.Model
             set
             {
                 bits &= ~(uint)0x7FF << 11 | 0x7FF;
-                var y_bits = (uint)(value < 0 ? 0x400 | (uint)(-value * 0x3FF) & 0x3FF : (uint)(value * 0x3FF) & 0x3FF);
+                var y_bits = (uint)(value < 0 ? 0x400 | ~(uint)(-value * 0x3FF) & 0x7FF : (uint)(value * 0x3FF) & 0x3FF);
                 bits |= y_bits << 11;
             }
         }
@@ -69,7 +87,7 @@ namespace Moonfish.Core.Model
             set
             {
                 bits &= 0x003FFFFF;
-                var z_bits = (uint)(value < 0 ? 0x200 | (uint)(-value * 0x1FF) & 0x1FF : (uint)(value * 0x1FF) & 0x1FF);
+                var z_bits = (uint)(value < 0 ? 0x200 | ~(uint)(-value * 0x1FF) & 0x3FF : (uint)(value * 0x1FF) & 0x1FF);
                 bits |= z_bits << 22;
             }
         }
@@ -77,13 +95,12 @@ namespace Moonfish.Core.Model
         public Vector3t(uint value)
         {
             bits = value;
-#if DEBUG
+            UT_Vector3t.RunTests();
             Vector3 test = new Vector3(X, Y, Z); float rounded;
             if ((rounded = (float)System.Math.Round(test.Length, 2)) != 1)
             {
                 throw new InvalidDataException();
             }
-#endif
         }
 
         public static explicit operator Vector3(Vector3t tvector)

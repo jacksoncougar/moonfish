@@ -33,7 +33,7 @@ namespace Moonfish.Core.Definitions
         {
             public tagblock0()
                 : base(40, new TagBlockField[]{
-                new TagBlockField(new string_id()),
+                new TagBlockField(new StringID()),
                 new TagBlockField(null, 4),
                 new TagBlockField(new tag_pointer()),
             }) { }
@@ -42,7 +42,7 @@ namespace Moonfish.Core.Definitions
         {
             public tagblock1()
                 : base(4, new TagBlockField[]{
-                new TagBlockField(new string_id()),
+                new TagBlockField(new StringID()),
             }) { }
         }
         public class tagblock2 : TagBlock

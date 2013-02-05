@@ -243,7 +243,7 @@ namespace Moonfish.Core
         }
     }
 
-    public struct string_id : IField, IReference<string_id>
+    public struct StringID : IField, IReference<StringID>
     {
         IStructure parent;
         public readonly short Index;
@@ -251,15 +251,15 @@ namespace Moonfish.Core
         byte nullbyte;
         const int size = 4;
 
-        public static explicit operator int(string_id strRef)
+        public static explicit operator int(StringID strRef)
         {
             return (strRef.Length << 24)| strRef.nullbyte | (ushort)strRef.Index;
         }
 
-        public static explicit operator string_id(int i)
+        public static explicit operator StringID(int i)
         {
             byte[] bytes = BitConverter.GetBytes(i);
-            return new string_id(BitConverter.ToInt16(bytes, 0), (sbyte)bytes[3], bytes[2]);
+            return new StringID(BitConverter.ToInt16(bytes, 0), (sbyte)bytes[3], bytes[2]);
         }
 
         byte[] IField.GetFieldData()
@@ -269,7 +269,7 @@ namespace Moonfish.Core
 
         void IField.SetFieldData(byte[] field_data, IStructure caller)
         {
-            this = (string_id)BitConverter.ToInt32(field_data, 0);
+            this = (StringID)BitConverter.ToInt32(field_data, 0);
             if (caller != null)
                 parent.SetField(this);
         }
@@ -284,30 +284,30 @@ namespace Moonfish.Core
             parent = calling_structure;
         }
 
-        string_id IReference<string_id>.GetToken()
+        StringID IReference<StringID>.GetToken()
         {
             return this;
         }
 
-        void IReference<string_id>.SetToken(string_id token)
+        void IReference<StringID>.SetToken(StringID token)
         {
-            this = new string_id(token);
+            this = new StringID(token);
             parent.SetField(this);
         }
 
-        bool IReference<string_id>.IsNullReference
+        bool IReference<StringID>.IsNullReference
         {
             get { return false; }
         }
 
-        public string_id(string_id copy)
+        public StringID(StringID copy)
         {
             parent = copy.parent;
             nullbyte = copy.nullbyte; if (nullbyte != byte.MinValue) throw new Exception("Bad String ID. \nBad. bad. bad! >:D");
             Index = copy.Index;
             Length = copy.Length;
         }
-        public string_id(short index, sbyte length, byte debug = byte.MinValue)
+        public StringID(short index, sbyte length, byte debug = byte.MinValue)
         {
             parent = default(IStructure);
             nullbyte = debug; if (nullbyte != byte.MinValue) throw new Exception("Bad String ID. \nBad. bad. bad! >:D");
@@ -319,6 +319,8 @@ namespace Moonfish.Core
         {
             return string.Format("{0} : {1} bytes", Index, Length);
         }
+
+        public static StringID Zero { get { return new StringID(0, 0); } }
     }
 
 

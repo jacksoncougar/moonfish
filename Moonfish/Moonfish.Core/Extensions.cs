@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
+using Moonfish.Core.Model;
+using OpenTK;
 
 namespace Moonfish.Core
 {
@@ -32,6 +34,63 @@ namespace Moonfish.Core
         public static void WritePadding(this BinaryWriter writer, int alignment)
         {
             writer.Write(new byte[Padding.GetCount(writer.BaseStream.Position, alignment)]);
+        }
+
+        public static void Write(this BinaryWriter binary_writer, Vector3 vector3)
+        {
+            binary_writer.Write(vector3.X);
+            binary_writer.Write(vector3.Y);
+            binary_writer.Write(vector3.Z);
+        }
+        public static Vector3 ReadVector3(this BinaryReader binary_reader)
+        {
+            return new Vector3(binary_reader.ReadSingle(), binary_reader.ReadSingle(), binary_reader.ReadSingle());
+        }
+
+        public static void Write(this BinaryWriter binary_writer, Quaternion quaternion)
+        {
+            binary_writer.Write(quaternion.X);
+            binary_writer.Write(quaternion.Y);
+            binary_writer.Write(quaternion.Z);
+            binary_writer.Write(quaternion.W);
+        }
+        public static Quaternion ReadQuaternion(this BinaryReader binary_reader)
+        {
+            return new Quaternion(binary_reader.ReadSingle(), binary_reader.ReadSingle(), binary_reader.ReadSingle(), binary_reader.ReadSingle());
+        }
+
+        public static void Write(this BinaryWriter binary_writer, tag_class tclass)
+        {
+            binary_writer.Write((int)tclass);
+        }
+        public static tag_class ReadTagClass(this BinaryReader binary_reader)
+
+        {
+            return (tag_class)binary_reader.ReadInt32();
+        }
+
+        public static tag_id ReadTagID(this BinaryReader binary_reader)
+        {
+            return (tag_id)binary_reader.ReadInt32();
+        }
+
+        public static void Write(this BinaryWriter binary_writer, Range range)
+        {
+            binary_writer.Write(range.min);
+            binary_writer.Write(range.max);
+        }
+        public static Range ReadRange(this BinaryReader binary_reader)
+        {
+            return new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle());
+        }
+
+        public static void Write(this BinaryWriter binary_writer, StringID string_id)
+        {
+            binary_writer.Write((int)string_id);
+        }
+        public static StringID ReadStringID(this BinaryReader binary_reader)
+        {
+            return (StringID)binary_reader.ReadInt32();
         }
     }
 }

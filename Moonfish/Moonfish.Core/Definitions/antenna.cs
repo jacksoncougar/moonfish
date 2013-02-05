@@ -10,7 +10,7 @@ namespace Moonfish.Core
     {
         public antenna()
             : base(160, new TagBlockField[]{
-            new TagBlockField(new string_id()), 
+            new TagBlockField(new StringID()), 
             new TagBlockField(new tag_pointer()),
             new TagBlockField(new tag_pointer()),
             new TagBlockField(null, 132),

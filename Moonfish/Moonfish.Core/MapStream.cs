@@ -10,7 +10,7 @@ namespace Moonfish.Core
     /// <summary>
     /// A minimalist class to load essential data which can be used to parse a retail cache map.
     /// </summary>
-    public class MapStream : FileStream, IReferenceList<string, string_id>, IReferenceList<tag_info, tag_id>
+    public class MapStream : FileStream, IReferenceList<string, StringID>, IReferenceList<tag_info, tag_id>
     {
         //NAME
         /// <summary>
@@ -107,13 +107,13 @@ namespace Moonfish.Core
 
             Unicode = new UnicodeValueNamePair[unicodeCount];
 
-            string_id[] strRefs = new string_id[unicodeCount];
+            StringID[] strRefs = new StringID[unicodeCount];
             int[] strOffsets = new int[unicodeCount];
 
             this.Seek(unicodeIndexAddress, SeekOrigin.Begin);
             for (int i = 0; i < unicodeCount; i++)
             {
-                strRefs[i] = (string_id)binReader.ReadInt32();
+                strRefs[i] = (StringID)binReader.ReadInt32();
                 strOffsets[i] = binReader.ReadInt32();
             }
             for (int i = 0; i < unicodeCount; i++)
@@ -309,12 +309,12 @@ namespace Moonfish.Core
             //wrapper.references[i].TagblockID = resource_owner.tagblocks.Select(x => x.).Single();//Select(x => x.Offset).Single();
         }
 
-        string IReferenceList<string, string_id>.GetValue(string_id reference)
+        string IReferenceList<string, StringID>.GetValue(StringID reference)
         {
             return Strings[reference.Index];
         }
 
-        string_id IReferenceList<string, string_id>.Link(string_id reference, string value)
+        StringID IReferenceList<string, StringID>.Link(StringID reference, string value)
         {
             throw new InvalidOperationException();
         }
@@ -330,7 +330,7 @@ namespace Moonfish.Core
         }
 
 
-        void IReferenceList<string, string_id>.Add(string_id reference, string value)
+        void IReferenceList<string, StringID>.Add(StringID reference, string value)
         {
             throw new NotImplementedException();
         }
@@ -365,7 +365,7 @@ namespace Moonfish.Core
 
     public struct UnicodeValueNamePair
     {
-        public string_id Name;
+        public StringID Name;
         public string Value;
 
         public override string ToString()

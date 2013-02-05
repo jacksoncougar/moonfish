@@ -58,7 +58,7 @@ namespace Moonfish.Core.Model.Wavefront
             return true;
         }
     }
-    internal class WavefrontObject
+    internal class WavefrontOBJ
     {
         internal struct Object
         {
@@ -75,9 +75,10 @@ namespace Moonfish.Core.Model.Wavefront
             public int[] vertex_indices;
             public int[] texcoord_indices;
             public int[] normal_indices;
-            bool has_texcoord;
-            bool has_normals;
+            public bool has_texcoord;
+            public bool has_normals;
             public int length;
+            public int material_id;
 
             public static bool TryParse(string line, out Face face)
             {
@@ -155,6 +156,11 @@ namespace Moonfish.Core.Model.Wavefront
                     }
                 }
                 return builder.ToString();
+            }
+
+            internal string GetToken(int index)
+            {
+                return string.Format("{0}:{1}:{2}", vertex_indices[index], texcoord_indices[index], normal_indices[index]);
             }
         }
     }

@@ -1,16 +1,15 @@
 // Released to the public domain. Use, modify and relicense at will.
 
-using System;
-
+using Moonfish.Core.Model.Adjacency;
 using OpenTK;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
-using OpenTK.Audio;
-using OpenTK.Audio.OpenAL;
 using OpenTK.Input;
-using Moonfish.Core.Raw;
+using System;
+using System.Drawing;
+using System.IO;
 using System.Threading;
-using Moonfish.Core.Model.Adjacency;
+using System.Windows.Forms;
 
 namespace StarterKit
 {
@@ -38,20 +37,19 @@ namespace StarterKit
         private Moonfish.Core.Model.Mesh mesh;
         bool draw_strip = false;
 
-        bool return_value = false;
         float yaw_ = default(float);
-        float rotation_speed = (float)Math.PI / (90.0f);
+        float rotation_speed = (float)Math.PI / (10.0f);
         int selectedstrip_ = 0;
-        float zoom_ = zoom_min;
-        const float zoom_max = 1000.0f;
+        float zoom_ = zoom_min + 1.0f;
+        const float zoom_max = 100.0f;
         const float zoom_min = 1.0f;
-        float zoom_step = 0.015f;
+        float zoom_step = 0.15f;
         private TriangleStrip[] strips = new TriangleStrip[0];
         public ushort[] GetStrip() { return strips[0].indices; }
         private Adjacencies stripper;
 
         public QuickModelView(Moonfish.Core.Model.Mesh mesh, Adjacencies stripper)
-            : base(400, 400)
+            : base(400, 400, GraphicsMode.Default, "", GameWindowFlags.Default)
         {
             // TODO: Complete member initialization
             this.mesh = mesh;
@@ -70,6 +68,7 @@ namespace StarterKit
         }
 
         public QuickModelView(Moonfish.Core.Model.Mesh mesh)
+            : base(400, 400, GraphicsMode.Default, "", GameWindowFlags.Default)
         {
             // TODO: Complete member initialization
             this.mesh = mesh;
@@ -77,26 +76,60 @@ namespace StarterKit
             SelectedStrip = 0;
             draw_strip = true;
         }
-        
+
+        Vector4 light0_position = new Vector4(-2, -2, 2, 1);
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
 
-            GL.ClearColor(0.1f, 0.2f, 0.5f, 0.0f); 
+            GL.ClearColor(0.1f, 0.1f, 0.1f, 0.0f);
             GL.PointSize(2.0f);
+            GL.Enable(EnableCap.DepthTest);
+            GL.Enable(EnableCap.ColorMaterial);
+            GL.ColorMaterial(MaterialFace.Front, ColorMaterialParameter.AmbientAndDiffuse);
 
             GL.Enable(EnableCap.CullFace);
             GL.CullFace(CullFaceMode.Back);
-            GL.Enable(EnableCap.DepthTest);
-            GL.Enable(EnableCap.ColorMaterial);
-            GL.ColorMaterial(MaterialFace.FrontAndBack, ColorMaterialParameter.AmbientAndDiffuse);
-            float[] lightPose1 = { -4f, 2.0f, 0.0f, 1.0f };
-            float[] lightColor1 = { .5f, 0.5f, 0.5f, 0.0f };
-            GL.Light(LightName.Light0, LightParameter.Diffuse, lightColor1);
-            GL.Light(LightName.Light0, LightParameter.Position, lightPose1);
 
-            GL.Disable(EnableCap.Lighting);
-            GL.DisableClientState(ArrayCap.NormalArray);
+            GL.Enable(EnableCap.Lighting);
+            GL.Enable(EnableCap.Light0);
+            float[] lightPose1 = { -4f, 7.0f, 6.0f, 1.0f };
+            float[] lightColor1 = { 0.4f, 0.32f, 1f, 0.0f };
+            GL.Light(LightName.Light0, LightParameter.Diffuse, lightColor1);
+            GL.Light(LightName.Light0, LightParameter.Position, light0_position);
+
+            uint[] buffers = new uint[2];
+            GL.GenBuffers(2, buffers);
+            GL.BindBuffer(BufferTarget.ArrayBuffer, buffers[0]);
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, buffers[1]);
+            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 14 * mesh.Vertices.Length), mesh.Vertices, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(sizeof(ushort)* mesh.Indices.Length), mesh.Indices, BufferUsageHint.StaticDraw);
+            
+            string path = string.Empty;
+            if (File.Exists(path = Path.Combine(Application.StartupPath, "etc", "default.png")))
+            {
+                Bitmap bitmap = new Bitmap(path);
+                System.Drawing.Imaging.BitmapData bitmap_data = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height), System.Drawing.Imaging.ImageLockMode.ReadOnly, bitmap.PixelFormat);
+
+                int id = GL.GenTexture();
+                GL.BindTexture(TextureTarget.Texture2D, id);
+                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgb, bitmap.Width, bitmap.Height, 0, PixelFormat.Bgr, PixelType.UnsignedByte, bitmap_data.Scan0);
+                GL.Enable(EnableCap.Texture2D);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+                GL.TexEnv(TextureEnvTarget.TextureEnv,
+                 TextureEnvParameter.TextureEnvMode,
+                 (float)TextureEnvMode.Modulate);
+                bitmap.UnlockBits(bitmap_data);
+            }
+            
+            
+            GL.EnableClientState(ArrayCap.VertexArray);
+            GL.VertexPointer(3, VertexPointerType.Float, 56, 20);
+            GL.EnableClientState(ArrayCap.NormalArray);
+            GL.NormalPointer(NormalPointerType.Float, 56, 8);
+            GL.TexCoordPointer(2, TexCoordPointerType.Float, 56, 0);
+            GL.EnableClientState(ArrayCap.TextureCoordArray);
         }
 
         /// <summary>
@@ -118,17 +151,12 @@ namespace StarterKit
 
         bool EnableLighting()
         {
-            GL.Enable(EnableCap.Lighting);
-            GL.Enable(EnableCap.Light0);
             GL.Enable(EnableCap.NormalArray);
-            //mesh.GenerateNormals();
             return true;
         }
 
         public override void Exit()
         {
-            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
             base.Exit();
         }
 
@@ -139,6 +167,13 @@ namespace StarterKit
         protected override void OnUpdateFrame(FrameEventArgs e)
         {
             base.OnUpdateFrame(e);
+
+            Matrix4 modelview = Matrix4.LookAt(new Vector3(Zoom, 0f, 1f), Vector3.Zero, Vector3.UnitZ);
+            GL.MatrixMode(MatrixMode.Modelview);
+            GL.LoadMatrix(ref modelview);
+            var rot = Yaw;
+            GL.Rotate(rot, Vector3.UnitZ);
+            GL.Rotate(-rot, Vector3.UnitY);
 
             if (Keyboard[Key.Escape])
             {
@@ -174,71 +209,41 @@ namespace StarterKit
 
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-            Matrix4 modelview = Matrix4.LookAt(new Vector3(Zoom,0f,1f), Vector3.Zero, Vector3.UnitZ);
-            GL.MatrixMode(MatrixMode.Modelview);
-            GL.LoadMatrix(ref modelview);
-
-            GL.Rotate(Yaw, Vector3.UnitZ);
 
             if (draw_strip)
             {
-                // draw vertices as points
-                GL.Begin(BeginMode.Points);
-                GL.Color4(Color4.White);
-                GL.Vertex3(new Vector3(0, 0, 0));
-                for (uint i = 0; i < mesh.Vertices.Length; i++)
+                GL.Enable(EnableCap.Lighting);
+                GL.Color4(Color4.LawnGreen);
+                GL.DrawArrays(BeginMode.Points, 0, mesh.Vertices.Length);
+                foreach (var group in mesh.ShaderGroups)
                 {
-                    GL.Color4(Color4.Yellow);
-                    GL.Vertex3(mesh.Vertices[i].Position);
+                    GL.Color4(new Color4((byte)(0x33 + (group.shader_index * 36)), (byte)(0x33 + (group.shader_index * 36)), 
+                        (byte)(0x33 + (group.shader_index * 36)), (byte)(0x33 - (group.shader_index * 36))));
+                    GL.DrawElements(BeginMode.TriangleStrip, group.strip_end, DrawElementsType.UnsignedShort, group.strip_start * 2);
                 }
-                GL.End(); 
-                //draw edges 
-                GL.Begin(BeginMode.LineStrip);
-                for (uint i = 0; i < strips[0].indices.Length - 1; i++)
-                {
-                    if (strips[0].indices[i] == strips[0].indices[i + 1]) continue;
-                    GL.Color4(Color4.Black);
-                    GL.Vertex3(mesh.Vertices[strips[0].indices[i]].Position);
-                }
-                GL.End();
-                //draw shaded tris
-                GL.CullFace(CullFaceMode.Back);
-                for (uint i = 0; i < SelectedStrip; i++)
-                {
-                    GL.Begin(BeginMode.TriangleStrip);
-                    for (uint j = 0; j < strips[i].indices.Length; j++)
-                    {
-                        GL.PointSize(4.0f);
-                        GL.Color4(Color4.Gray);
-                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position);
-                        GL.Normal3((Vector3)mesh.Vertices[strips[i].indices[j]].Normal);
-                    }
-                    GL.End();
-                }
-                //draw shaded tris
-                GL.CullFace(CullFaceMode.Front);
-                for (uint i = 0; i < SelectedStrip; i++)
-                {
-                    GL.Begin(BeginMode.TriangleStrip);
-                    for (uint j = 0; j < strips[i].indices.Length; j++)
-                    {
-                        GL.PointSize(4.0f);
-                        GL.Color4(Color4.Red);
-                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position);
-                        GL.Normal3((Vector3)mesh.Vertices[strips[i].indices[j]].Normal);
-                    }
-                    GL.End();
-                }
-                //draw normals
+                GL.Color4(new Color4(0x11, 0x11, 0x11, 0xFF));
+                GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
+                GL.DrawElements(BeginMode.TriangleStrip, mesh.Indices.Length, DrawElementsType.UnsignedShort, 0);
+                GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
+            
+                GL.Disable(EnableCap.Lighting);
                 for (uint i = 0; i < SelectedStrip; i++)
                 {
                     GL.Begin(BeginMode.Lines);
                     for (uint j = 0; j < strips[i].indices.Length; j++)
                     {
+                        GL.Color4(Color4.Green);
+                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position);
+                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position + (Vector3)mesh.Vertices[strips[i].indices[j]].Normal * 0.15f); GL.Color4(Color4.Red);
+
                         GL.Color4(Color4.Red);
                         GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position);
-                        GL.Color4(Color4.Green);
-                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position + (Vector3)mesh.Vertices[strips[i].indices[j]].Normal * 0.15f);
+                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position + (Vector3)mesh.Vertices[strips[i].indices[j]].Tangent * 0.15f); GL.Color4(Color4.Red);
+                       
+                        GL.Color4(Color4.Blue); 
+                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position);
+                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position + (Vector3)mesh.Vertices[strips[i].indices[j]].Bitangent * 0.15f);
+                        
                     }
                     GL.End();
                 }

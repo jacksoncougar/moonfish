@@ -11,28 +11,198 @@ using StarterKit;
 using System.Threading;
 using Moonfish.Core.Model.Adjacency;
 using Moonfish.Core.Model.Wavefront;
+using System.Runtime.InteropServices;
+using Moonfish.Core.Definitions;
+using System.Xml;
 
 namespace Moonfish.Core.Model
 {
-    
     public class Mesh
     {
-        ShaderGroup[] ShaderGroups;
         public ushort[] Indices;
-        public DefaultVertex[] Vertices;
+        public StandardVertex[] Vertices;
+        public ShaderGroup[] ShaderGroups;
+        public DCompressionRanges Compression;
 
-        public bool Load(byte[] raw_data, Resource[] raw_resources, CompressionRanges compression_ranges)
+        private DCompressionRanges GenerateCompressionData()
+        {
+            DCompressionRanges compression = new DCompressionRanges();
+            foreach (var vertex in Vertices)
+            {
+                compression.X = Range.Include(compression.X, vertex.Position.X);
+                compression.Y = Range.Include(compression.Y, vertex.Position.Y);
+                compression.Z = Range.Include(compression.Z, vertex.Position.Z);
+                compression.U = Range.Include(compression.U, vertex.TextureCoordinates.X);
+                compression.V = Range.Include(compression.V, vertex.TextureCoordinates.Y);
+            }
+            compression.Expand(0.0001f);
+            Compression = compression;
+            return compression;
+        }
+        private DSection GenerateSectionData(uint raw_size)
+        {
+            DSection section = new DSection();
+            section.RawSize = raw_size;
+            section.RawDataSize = raw_size - (124);//arbitrary for now
+            section.RawOffset = 0;
+            section.TriangleCount = this.GetTriangleCount();
+            section.VertexCount = (ushort)this.Vertices.Length;
+            return section;
+        }
+
+        /// <summary>
+        /// Generating from a list this way is not grande.
+        /// </summary>
+        /// <returns></returns>
+        private bool GenerateNormals()
+        {
+            for (int i = 0; i < Vertices.Length; i++)
+            {
+                Vertices[i].Normal = Vector3.Zero;
+            }
+            int ref0, ref1, ref2;
+            bool winding = false;
+            if (Indices == null || Vertices == null) return false;
+            for (int i = 0; i < Indices.Length - 2; i++)
+            {
+                if (winding)
+                {
+                    ref0 = Indices[i + 0];
+                    ref1 = Indices[i + 1];
+                    ref2 = Indices[i + 2];
+                }
+                else
+                {
+                    ref0 = Indices[i + 0];
+                    ref2 = Indices[i + 1];
+                    ref1 = Indices[i + 2];
+                }
+                winding = !winding;
+                if (ref0 == ref1 || ref1 == ref2 || ref0 == ref2) continue;
+                Vector3 vec1 = Vertices[ref2].Position - Vertices[ref0].Position;
+                Vector3 vec2 = Vertices[ref1].Position - Vertices[ref0].Position;
+                Vector3 normal = Vector3.Cross(vec1, vec2);
+                Vertices[ref0].Normal += normal;
+                Vertices[ref1].Normal += normal;
+                Vertices[ref2].Normal += normal;
+            }
+            for (int i = 0; i < Vertices.Length; i++)
+            {
+                Vertices[i].Normal.Normalize();
+            }
+            return true;
+        }
+        private bool GenerateTexCoords()
+        {
+            int ref0, ref1, ref2;
+            if (Indices == null || Vertices == null) return false;
+            for (int i = 0; i < Indices.Length - 2; ++i)
+            {
+                ref0 = Indices[i + 0];
+                ref1 = Indices[i + 1];
+                ref2 = Indices[i + 2];
+                if (ref0 == ref1 || ref1 == ref2 || ref0 == ref2) continue;
+                if (Vertices[ref0].TextureCoordinates == Vector2.Zero)
+                    Vertices[ref0].TextureCoordinates = Vertices[ref0].Position.Xy;
+                if (Vertices[ref1].TextureCoordinates == Vector2.Zero)
+                    Vertices[ref1].TextureCoordinates = Vertices[ref1].Position.Xy;
+                if (Vertices[ref2].TextureCoordinates == Vector2.Zero)
+                    Vertices[ref2].TextureCoordinates = Vertices[ref2].Position.Xy;
+            }
+            for (int i = 0; i < Vertices.Length; i++)
+            {
+                Vertices[i].TextureCoordinates.NormalizeFast();
+            }
+            return true;
+        }
+        private bool GenerateTangentSpaceVectors()
+        {
+            if (this.Vertices == null || this.Indices == null) return false;
+            Vector3[] tangents = new Vector3[this.Vertices.Length * 2];
+            int bitan = this.Vertices.Length;
+            for (int i = 0; i < this.Indices.Length - 2; i++)
+            {
+                if (IsDegenerate(this.Indices[i], this.Indices[i + 1], this.Indices[i + 2]))
+                {
+                    //do loop code
+                    continue;
+                }
+                ushort i1 = this.Indices[i + 0];
+                ushort i2 = this.Indices[i + 1];
+                ushort i3 = this.Indices[i + 2];
+                Vector3 v1 = this.Vertices[i1].Position;
+                Vector3 v2 = this.Vertices[i2].Position;
+                Vector3 v3 = this.Vertices[i3].Position;
+                Vector2 t1 = this.Vertices[i1].TextureCoordinates;
+                Vector2 t2 = this.Vertices[i2].TextureCoordinates;
+                Vector2 t3 = this.Vertices[i3].TextureCoordinates;
+
+                float x1 = v2.X - v1.X;
+                float x2 = v3.X - v1.X;
+                float y1 = v2.Y - v1.Y;
+                float y2 = v3.Y - v1.Y;
+                float z1 = v2.Z - v1.Z;
+                float z2 = v3.Z - v1.Z;
+
+                float tu1 = t2.X - t1.X;
+                float tu2 = t3.X - t1.X;
+                float tv1 = t2.Y - t1.Y;
+                float tv2 = t3.Y - t1.Y;
+
+                float r = 1.0f / (tu1 * tv2 - tu2 * tv1);
+                Vector3 sdir = new Vector3(
+                    (tv2 * x1 - tv1 * x2) * r,
+                    (tv2 * y1 - tv1 * y2) * r,
+                    (tv2 * z1 - tv1 * z2) * r
+                    );
+                Vector3 tdir = new Vector3(
+                    (tu1 * x2 - tu2 * x1) * r,
+                    (tu1 * y2 - tu2 * y1) * r,
+                    (tu1 * z2 - tu2 * z1) * r
+                    );
+                tangents[i1] += sdir;
+                tangents[i2] += sdir;
+                tangents[i3] += sdir;
+                tangents[bitan + i1] += tdir;
+                tangents[bitan + i2] += tdir;
+                tangents[bitan + i3] += tdir;
+            }
+            for (int i = 0; i < this.Vertices.Length; i++)
+            {
+                Vector3 t = tangents[i];
+                Vector3 n = this.Vertices[i].Normal;
+                this.Vertices[i].Tangent = (t - n * Vector3.Dot(n, t));
+                this.Vertices[i].Tangent.Normalize();
+                bool lefthanded = Vector3.Dot(Vector3.Cross(n, t), tangents[bitan + i]) < 0.0F ? true : false;
+                this.Vertices[i].Bitangent = Vector3.Cross(n, this.Vertices[i].Tangent);
+                if (lefthanded) this.Vertices[i].Bitangent *= -1;
+            }
+            return true;
+        }
+
+        private ushort GetTriangleCount()
+        {
+            ushort triangle_count = 0;
+            for (int i = 0; i < this.Indices.Length - 2; i++)
+            {
+                if (IsDegenerate((ushort)i)) continue;
+                else ++triangle_count;
+            }
+            return triangle_count;
+        }
+
+        public bool Load(byte[] raw_data, DResource[] raw_resources, DCompressionRanges compression_ranges)
         {
             const int first_address = 4 + 116;
-                        int coord_size = 0;
-                        int texcoord_size = 0;
-                        int vector_size = 0;
-            int stream_length = BitConverter.ToInt32(raw_data,4);
+            int coord_size = 0;
+            int texcoord_size = 0;
+            int vector_size = 0;
+            int stream_length = BitConverter.ToInt32(raw_data, 4);
             MemoryStream stream = new MemoryStream(raw_data, first_address, stream_length, false);
             BinaryReader binary_reader = new BinaryReader(stream);
             foreach (var resource in raw_resources)
             {
-                if(resource.first_ != 0) continue;//skip the vertex resources
+                if (resource.first_ != 0) continue;//skip the vertex resources
                 //get the header_value (which is  count  of blocks for this resource)...
                 int count = BitConverter.ToInt32(raw_data, 8 + resource.header_address);
                 // move stream to start of resource data
@@ -47,7 +217,7 @@ namespace Moonfish.Core.Model
                         // read each block
                         for (int i = 0; i < count; i++)
                         {
-                            ShaderGroups[i] = new ShaderGroup() { data = binary_reader.ReadBytes(resource.data_size__or__first_index) };
+                            ShaderGroups[i] = new ShaderGroup(binary_reader);
                         }
                         break;
                     #endregion
@@ -69,8 +239,8 @@ namespace Moonfish.Core.Model
                                 for (int i = 0; i < count; i++)
                                 {
                                     byte[] buffer = binary_reader.ReadBytes(resource.data_size__or__first_index);
-                                    if(i ==0) coord_size = buffer[1];
-                                    else if(i==1) texcoord_size  = buffer[1];
+                                    if (i == 0) coord_size = buffer[1];
+                                    else if (i == 1) texcoord_size = buffer[1];
                                     else if (i == 2) vector_size = buffer[1];
                                     else throw new Exception("D:");
                                 }
@@ -90,6 +260,212 @@ namespace Moonfish.Core.Model
             Vertices = ExtractVertices(compression_ranges, coord_raw, coord_size, texcoord_raw, texcoord_size, vector_raw, vector_size);
             return true;
         }
+
+        public bool ImportFromWavefront(string filename)
+        {
+            Log.Info(string.Format("Loading file {0} into memory buffer", filename));
+            byte[] buffer = null;
+            using (var file = File.OpenRead(filename))
+            {
+                buffer = new byte[file.Length];
+                file.Read(buffer, 0, buffer.Length);
+            } if (buffer == null)
+            {
+                Log.Error("Failed to create memory buffer");
+                return false;
+            }
+            MemoryStream stream = new MemoryStream(buffer);
+            StreamReader reader = new StreamReader(stream);
+
+            WavefrontOBJ.Object[] objects = new WavefrontOBJ.Object[1] { new WavefrontOBJ.Object() { faces_start_index = 0 } };
+            List<WavefrontOBJ.Face> faces = new List<WavefrontOBJ.Face>();
+            List<Vector3> vertex_coords = new List<Vector3>();
+            List<Vector2> texture_coords = new List<Vector2>();
+            List<Vector3> normals = new List<Vector3>();
+            Dictionary<string, int> material_names = new Dictionary<string, int>();
+            material_names.Add("default", 0);
+            int selected_material = 0;
+            bool default_object = true;
+            bool default_object_processed = false;
+            bool has_normals = false;
+            bool has_texcoords = false;
+
+            Log.Info("Begin parsing Wavefront Object data from buffer");
+            while (!reader.EndOfStream)
+            {
+                string line = reader.ReadLine().Trim();
+                if (line.StartsWith("# "))
+                {
+                    Log.Info(line);
+                    continue;
+                }
+                if (line.StartsWith("o "))
+                {
+                    // if this is the first object token, use the default object
+                    if (default_object) default_object = false;
+                    else
+                    {
+                        Log.Warn(@"Support for multiple wavefront objects per mesh not implemented.
+                                   Meshes can only accept a single wavefront object. Continuing, but only using first object!");
+                        if (!default_object_processed)
+                        {
+                            objects[0].faces_count = faces.Count;
+                            default_object_processed = true;
+                        }
+                    }
+                }
+                else if (line.StartsWith("v "))
+                {
+                    Vector3 vertex;
+                    if (!WavefrontExtensions.TryParseVector3(out vertex, line)) return false;
+                    vertex_coords.Add(vertex);
+                }
+                else if (line.StartsWith("vt "))
+                {
+                    has_texcoords = true;
+                    Vector2 texcoord;
+                    if (!WavefrontExtensions.TryParseVector2(out texcoord, line)) return false;
+                    texture_coords.Add(texcoord);
+                }
+                else if (line.StartsWith("vn "))
+                {
+                    has_normals = true;
+                    Vector3 normal;
+                    if (!WavefrontExtensions.TryParseVector3(out normal, line)) return false;
+                    normals.Add(normal);
+                }
+                else if (line.StartsWith("usemtl "))
+                {
+                    string name = line.Replace("usemtl ", "").Trim();
+                    if (!material_names.ContainsKey(name)) material_names.Add(name, material_names.Count);
+                    selected_material = material_names[name];
+                }
+                else if (line.StartsWith("f "))
+                {
+                    WavefrontOBJ.Face face;
+                    if (!WavefrontOBJ.Face.TryParse(line, out face))
+                    {
+                        Log.Error(string.Format("Error parsing line: {0}", line));
+                        return false;
+                    }
+                    else
+                    {
+                        face.material_id = selected_material;
+                        faces.Add(face);
+                    }
+                }
+                else Log.Warn(string.Format("Unsupported format found while parsing line: {0}", line));
+            }
+            if (!default_object_processed)
+            {
+                objects[0].faces_count = faces.Count;
+                default_object_processed = true;
+            }
+            Log.Info("Partial success... finished parsing Wavefront Object data from buffer");
+
+            List<Triangle> triangle_list = new List<Triangle>(faces.Count);
+            List<StandardVertex> vertices = new List<StandardVertex>(vertex_coords.Count);
+            List<string> tokens = new List<string>();
+
+            for (int i = 0; i < faces.Count; i++)
+            {
+                Triangle triangle = new Triangle() { MaterialID = faces[i].material_id };
+                if (!tokens.Contains(faces[i].GetToken(0)))
+                {
+                    triangle.Vertex1 = (ushort)vertices.Count;
+                    tokens.Add(faces[i].GetToken(0));
+                    vertices.Add(new StandardVertex()
+                    {
+                        Position = vertex_coords[faces[i].vertex_indices[0] - 1],
+                        TextureCoordinates = faces[i].has_texcoord ? texture_coords[faces[i].texcoord_indices[0] - 1] : Vector2.Zero,
+                        Normal = faces[i].has_normals ? normals[faces[i].normal_indices[0] - 1] : Vector3.Zero
+                    });
+                }
+                else
+                {
+                    triangle.Vertex1 = (ushort)tokens.IndexOf(faces[i].GetToken(0));
+                }
+                if (!tokens.Contains(faces[i].GetToken(1)))
+                {
+                    triangle.Vertex2 = (ushort)vertices.Count;
+                    tokens.Add(faces[i].GetToken(1));
+                    vertices.Add(new StandardVertex()
+                    {
+                        Position = vertex_coords[faces[i].vertex_indices[1] - 1],
+                        TextureCoordinates = faces[i].has_texcoord ? texture_coords[faces[i].texcoord_indices[1] - 1] : Vector2.Zero,
+                        Normal = faces[i].has_normals ? normals[faces[i].normal_indices[1] - 1] : Vector3.Zero
+                    });
+                }
+                else
+                {
+                    triangle.Vertex2 = (ushort)tokens.IndexOf(faces[i].GetToken(1));
+                }
+                if (!tokens.Contains(faces[i].GetToken(2)))
+                {
+                    triangle.Vertex3 = (ushort)vertices.Count;
+                    tokens.Add(faces[i].GetToken(2));
+                    vertices.Add(new StandardVertex()
+                    {
+                        Position = vertex_coords[faces[i].vertex_indices[2] - 1],
+                        TextureCoordinates = faces[i].has_texcoord ? texture_coords[faces[i].texcoord_indices[2] - 1] : Vector2.Zero,
+                        Normal = faces[i].has_normals ? normals[faces[i].normal_indices[2] - 1] : Vector3.Zero
+                    });
+                }
+                else
+                {
+                    triangle.Vertex3 = (ushort)tokens.IndexOf(faces[i].GetToken(2));
+                }
+                triangle_list.Add(triangle);
+            }
+
+
+            List<TriangleStrip> strips = new List<TriangleStrip>(material_names.Count);
+            foreach (var material in material_names)
+            {
+                var material_faces = triangle_list.Where(x => x.MaterialID == material.Value).Select(x => x.AsEnumerable<ushort>());
+                List<ushort> tris = new List<ushort>(material_faces.Count() * 3);
+                foreach (var item in material_faces)
+                {
+                    tris.AddRange(item.ToArray());
+                }
+                if (tris.Count > 0)
+                {
+                    Adjacencies stripper = new Adjacencies(tris.ToArray());
+                    strips.Add(new TriangleStrip() { MaterialID = (ushort)material.Value, Indices = stripper.GenerateTriangleStrip() });
+                }
+            }
+            this.Vertices = vertices.ToArray();
+            this.ShaderGroups = new ShaderGroup[strips.Count];
+
+            Log.Info("Parsing shader groups from triangle strips...");
+            TriangleStrip combined_strip = new TriangleStrip() { Indices = new ushort[0] };
+            ushort offset = 0;
+            for (int i = 0; i < strips.Count; ++i)
+            {
+                TriangleStrip.Append(ref combined_strip, strips[i]);
+                this.ShaderGroups[i] = new ShaderGroup(offset, (ushort)(combined_strip.Indices.Length - offset)) { shader_index = (short)i };
+                Log.Info(string.Format(@"ShaderGroup[ {0} ] {{ Start = {1}, Length = {2} }}", i, offset, (combined_strip.Indices.Length - offset).ToString()));
+                offset = (ushort)combined_strip.Indices.Length; 
+
+            }
+            this.Indices = combined_strip.Indices;
+            if (!has_texcoords)
+            {
+                Log.Warn("No texture coordinates found while parsing Wavefront file..." +
+                        "\nGenerating uv coordinates from vertex positions (flat mapping)");
+                this.GenerateTexCoords();
+            }
+            if (!has_normals)
+            {
+                Log.Warn("No normals found while parsing Wavefront file..." +
+                        "\nGenerating normals...");
+                this.GenerateNormals();
+            }
+            Log.Info("Generating tangent space vectors...");
+            this.GenerateTangentSpaceVectors();
+            Log.Info("Success, import finished! Returning true from ImportFromWavefront();");
+            return true;
+        }
         public bool ExportAsWavefront(string filename)
         {
             using (StreamWriter writer = File.CreateText(filename))
@@ -97,14 +473,14 @@ namespace Moonfish.Core.Model
                 writer.WriteLine("# moonfish 2013 : Wavefront OBJ");
                 foreach (var vertex in Vertices)
                 {
-                    writer.WriteLine("v {0} {1} {2}", vertex.Position.X, 
+                    writer.WriteLine("v {0} {1} {2}", vertex.Position.X,
                         vertex.Position.Y, vertex.Position.Z);
-                } 
+                }
                 foreach (var vertex in Vertices)
                 {
                     writer.WriteLine("vt {0} {1}", vertex.TextureCoordinates.X.ToString("#0.00000"),
                         vertex.TextureCoordinates.Y.ToString("#0.00000"));
-                } 
+                }
                 foreach (var vertex in Vertices)
                 {
                     writer.WriteLine("vn {0} {1} {2}", vertex.Normal.X.ToString("#0.00000"),
@@ -131,275 +507,499 @@ namespace Moonfish.Core.Model
             }
             return true;
         }
-        public void Serialize()
+        public bool ExportForEntity(string desination_folder, string tagname)
         {
-            // 1.create halo2 formatted resource blocks
+            model model = new model();                                                  // Make TagStructure object to hold our model definition data
+
+            model.Compression.Add(new model.BoundingBox(GenerateCompressionData()));    // Add a new Compression TagBlock, filling it from this mesh's data
+
+            DResource[] resource = null;                                                 // Convert the model data into the halo 2 format and write it to a file
+            int raw_size = -1;
+
+            string output_filename = Path.Combine(desination_folder, tagname);
+            string output_name = output_filename.Substring(output_filename.LastIndexOf('\\') + 1);
+            string meta_filepath = Path.ChangeExtension(Path.Combine(desination_folder, output_name), ".mode");
+            string meta_xml_filepath = Path.ChangeExtension(Path.Combine(desination_folder, output_name), ".mode.xml");
+            string raw_filepath = Path.ChangeExtension(Path.Combine(desination_folder, output_name), ".moderaw");
+            string raw_xml_filepath = Path.ChangeExtension(Path.Combine(desination_folder, output_name), ".moderaw.xml");
+            string info_filepath = Path.ChangeExtension(Path.Combine(desination_folder, output_name), ".info");
+
+            if (!Directory.Exists(desination_folder)) Directory.CreateDirectory(desination_folder);
+
+            using (BinaryWriter bin = new BinaryWriter(File.Create(raw_filepath)))
+            {
+                var buffer = this.Serialize(out resource);
+                raw_size = buffer.Length;
+                bin.Write(buffer);
+            } if (resource == null) return false;                                       // If we didn't get any resources back then the method failed.
+
+            model.Regions.Add(new model.Region(new DRegion()));                         // Add a default region + default definition
+            model.Regions[0].Permutations.Add(new model.Region.Permutation());          // Add a default permutation to that region
+            model.Sections.Add(new model.Section(GenerateSectionData((uint)raw_size))); // Add a new Section tagBlock to hold our model information
+            model.Sections[0].Resources.AddRange(new model.Section.Resource[]{
+            new model.Section.Resource(resource[0]), 
+            new model.Section.Resource(resource[1]), 
+            new model.Section.Resource(resource[2]), 
+            new model.Section.Resource(resource[3]), 
+            new model.Section.Resource(resource[4]), 
+            new model.Section.Resource(resource[5]), 
+            new model.Section.Resource(resource[6]), 
+            });
+            model.Groups.Add(new model.Group(new DGroup()));                            // Add a default model_group + a default definition
+            model.Nodes.Add(new model.Node(new DNode()));                               // Add a default node + default definition
+            for (int i = 0; i < ShaderGroups.Length; i++)
+            {
+                model.Shaders.Add(new model.Shader(new DShader()));                     // Add a default shader + default definition
+            }
+            int meta_size = 0;
+            using (var file = File.Create(meta_filepath))
+            {
+                Memory.Map(model, file);
+                meta_size = (int)file.Length;
+            }
+            using (XmlWriter xml = XmlWriter.Create(File.Create(meta_xml_filepath),
+                new XmlWriterSettings() { Indent = true, OmitXmlDeclaration = true }))
+            {
+                xml.WriteStartElement("Meta");
+                xml.WriteAttributeString("TagName", tagname);
+                xml.WriteAttributeString("Offset", "0");
+                xml.WriteAttributeString("Size", meta_size.ToString());
+                xml.WriteAttributeString("TagType", "mode");
+                xml.WriteAttributeString("Magic", "0");
+                xml.WriteAttributeString("Parsed", "True");
+                xml.WriteAttributeString("Date", DateTime.Now.ToShortDateString());
+                xml.WriteAttributeString("Time", DateTime.Now.ToShortTimeString());
+                xml.WriteAttributeString("EntityVersion", "0.1");
+                xml.WriteAttributeString("Padding", "0");
+
+                WriteEntityXmlNodes(xml, model, 0, tagname);
+
+                xml.WriteEndElement();
+            }
+            int raw_pointer_address = (model.Sections as IPointable).Address + 56;//bug lol
+            using (XmlWriter xml = XmlWriter.Create(raw_xml_filepath,
+                new XmlWriterSettings() { Indent = true, OmitXmlDeclaration = true }))
+            {
+                xml.WriteStartElement("RawData");
+                xml.WriteAttributeString("TagType", "mode");
+                xml.WriteAttributeString("TagName", tagname);
+                xml.WriteAttributeString("RawType", "Model");
+                xml.WriteAttributeString("RawChunkCount", "1");
+                xml.WriteAttributeString("Date", DateTime.Now.ToShortDateString());
+                xml.WriteAttributeString("Time", DateTime.Now.ToShortTimeString());
+                xml.WriteAttributeString("EntityVersion", "0.1");
+                {
+                    xml.WriteStartElement("RawChunk");
+                    xml.WriteAttributeString("RawDataType", "mode1");
+                    xml.WriteAttributeString("PointerMetaOffset", raw_pointer_address.ToString());
+                    xml.WriteAttributeString("RawType", "Model");
+                    xml.WriteAttributeString("ChunkSize", raw_size.ToString());
+                    xml.WriteAttributeString("PointsToOffset", "0");
+                    xml.WriteAttributeString("RawLocation", "Internal");
+                    xml.WriteEndElement();
+                }
+
+                xml.WriteEndElement();
+            }
+            using (StreamWriter txt = new StreamWriter(info_filepath))
+            {
+                txt.WriteLine(meta_filepath);
+            }
+            return false;
+        }
+
+        private void WriteEntityXmlNodes(XmlWriter xml, IEnumerable<TagBlockField> tagblock, int current_offset, string tagname)
+        {
+            foreach (var field in tagblock)
+            {
+                if (field.Object.GetType() == typeof(StringID))
+                {
+                    xml.WriteStartElement("String");
+                    xml.WriteAttributeString("Description", "Waffle");
+                    xml.WriteAttributeString("Offset", (current_offset + field.FieldOffset).ToString());
+                    xml.WriteAttributeString("StringName", "default");
+                    xml.WriteAttributeString("TagType", "mode");
+                    xml.WriteAttributeString("TagName", tagname);
+                    xml.WriteEndElement();
+                }
+                else if (field.Object.GetType() == typeof(tag_id))
+                {
+                    xml.WriteStartElement("Ident");
+                    xml.WriteAttributeString("Description", "Waffle");
+                    xml.WriteAttributeString("Offset", (current_offset + field.FieldOffset).ToString());
+                    xml.WriteAttributeString("PointsToTagType", "mode");
+                    xml.WriteAttributeString("PointsToTagName", tagname);
+                    xml.WriteAttributeString("TagType", "mode");
+                    xml.WriteAttributeString("TagName", tagname);
+                    xml.WriteEndElement();
+                }
+                else if (field.Object.GetType() == typeof(tag_pointer))
+                {
+                    xml.WriteStartElement("Ident");
+                    xml.WriteAttributeString("Description", "Waffle");
+                    xml.WriteAttributeString("Offset", (current_offset + (field.FieldOffset + 4)).ToString());
+                    xml.WriteAttributeString("PointsToTagType", "");
+                    xml.WriteAttributeString("PointsToTagName", "Null");
+                    xml.WriteAttributeString("TagType", "mode");
+                    xml.WriteAttributeString("TagName", tagname);
+                    xml.WriteEndElement();
+                }
+                else
+                {
+                    IEnumerable<TagBlock> taglist_interface = (field.Object as IEnumerable<TagBlock>);
+                    if (taglist_interface != null)
+                    {
+                        if (taglist_interface.Count<TagBlock>() == 0) continue;
+                        xml.WriteStartElement("Reflexive");
+                        xml.WriteAttributeString("Description", "Waffle");
+                        xml.WriteAttributeString("Offset", (current_offset + field.FieldOffset).ToString());
+                        xml.WriteAttributeString("ChunkCount", taglist_interface.Count<TagBlock>().ToString());
+                        xml.WriteAttributeString("ChunkSize", (field.Object as IPointable).SizeOf.ToString());
+                        xml.WriteAttributeString("Translation", (field.Object as IPointable).Address.ToString());
+                        xml.WriteAttributeString("PointsToTagType", "mode");
+                        xml.WriteAttributeString("PointsToTagName", tagname);
+                        xml.WriteAttributeString("TagType", "mode");
+                        xml.WriteAttributeString("TagName", tagname);
+                        xml.WriteEndElement();
+                        foreach (var item in taglist_interface)
+                        {
+                            WriteEntityXmlNodes(xml, item, (field.Object as IPointable).Address, tagname);
+                        }
+                    }
+                }
+            }
+        }
+        public byte[] Serialize(out DResource[] resource_out)
+        {
+            /* Intent: Write out the this Model instance data into a format that 
+             * the halo 2 version of blam! engine can use.
+             * The resources that we will be focusing on are ShaderGroups, Indices,
+             * Vertex position, texcoord, tangent space vectors, and a simple bonemap.*/
+
+            Log.Info(@"Entering Model.Serialize()");
+
+            if (Compression == null) { GenerateCompressionData(); }     // Check that we have compression data available before continuing
+            DResource[] resource = new DResource[7];                    // Create resource defintion array
             MemoryStream buffer = new MemoryStream();
-            BinaryWriter writer = new BinaryWriter(buffer);
-            writer.WriteFourCC("blkh");
-            writer.Write(new byte[4]);              // int: resource size  (reserve)
-            writer.Write(new byte[116]);            // header (reserve)
-            writer.WriteFourCC("rsrc");             // shader_group resource begin
-            writer.Write(new byte[72]);             // shader_group data (reserve)
-            writer.WriteFourCC("rsrc");             // indices resource begin
+            BinaryWriter bin = new BinaryWriter(buffer);                // BinaryWriter
+
+            Log.Info(string.Format(@"Writing header_tag @{0}", bin.BaseStream.Position));
+            bin.WriteFourCC("blkh");                // Write the header_tag value
+            bin.Write(0);                           // [uint] resource_data_size  (reserve)
+
+            // * Begin resource_header // size: 112
+
+            Log.Info(string.Format(@"Writing shader_groups_count = {0} @{1}", ShaderGroups.Length, bin.BaseStream.Position));
+            bin.Write(ShaderGroups.Length);         // * 0x00: shader_groups_count;
+            bin.Write(new byte[28]);                // * 0x08: some unused thing... count.
+            Log.Info(string.Format(@"Writing indices_count = {0} @{1}", Indices.Length, bin.BaseStream.Position));
+            bin.Write(Indices.Length);              // * 0x20: indices_count;
+            bin.Write(new byte[20]);
+            bin.Write(3);                           // * 0x38: vertex_resource_count; //special
+            bin.Write(new byte[40]);
+            bin.Write(1);                           // * 0x64: bone_map_count;          
+            bin.Write(new byte[8]);
+
+            Log.Info(string.Format(@"Resource data_start_offset = {0}", bin.BaseStream.Position));
+            var resource_data_start_offset = bin.BaseStream.Position;   // This is the offset to which all DResource block_offsets are written from
+
+            bin.WriteFourCC("rsrc");             // shader_group resource begin
+            resource[0] = new DResource(0, 72, ShaderGroups.Length * 72, (int)(bin.BaseStream.Position - resource_data_start_offset));
+            foreach (var group in ShaderGroups)
+                group.WriteTo(bin);             // shader_group data
+
+            bin.WriteFourCC("rsrc");             // indices resource begin
+            resource[1] = new DResource(32, sizeof(ushort), sizeof(ushort) * this.Indices.Length, (int)(bin.BaseStream.Position - resource_data_start_offset));
             foreach (ushort index in this.Indices)  // write each index ushort
-                writer.Write(index);                // pad to word boundary
-            writer.WritePadding(4);
-            writer.WriteFourCC("rsrc");             // vertex_data_header?
-            writer.Write(new byte[32]);             // vertex resource
-            writer.Write(new byte[32]);             // texcoord resource
-            writer.Write(new byte[32]);             // vectors resource (normal, tangent, binormal)
-            writer.WriteFourCC("rsrc");
+                bin.Write(index);                // pad to word boundary
+            bin.WritePadding(4);
+
+            bin.WriteFourCC("rsrc");             // vertex_data_header?
+            resource[2] = new DResource(56, 32, 32 * 3, (int)(bin.BaseStream.Position - resource_data_start_offset));
+            bin.Write(Mesh.VERTEX_RESOURCE_HEADER_DATA); // laziness TODO: write out proper headers here to allow for uncompressed types
+
+            bin.WriteFourCC("rsrc");
+            resource[3] = new DResource(56, 0, this.Vertices.Length * sizeof(ushort) * 3, (int)(bin.BaseStream.Position - resource_data_start_offset), true);
             {
-                Range x = new Range();
-                Range y = new Range();
-                Range z = new Range();
                 foreach (var vertex in this.Vertices)
                 {
-                    x = Range.Include(x, vertex.Position.X);
-                    y = Range.Include(y, vertex.Position.Y);
-                    z = Range.Include(z, vertex.Position.Z);
+                    bin.Write(Deflate(Compression.X, vertex.Position.X));
+                    bin.Write(Deflate(Compression.Y, vertex.Position.Y));
+                    bin.Write(Deflate(Compression.Z, vertex.Position.Z));
                 }
-                foreach (var vertex in this.Vertices)
-                {
-                    writer.Write(Deflate(x, vertex.Position.X));
-                    writer.Write(Deflate(y, vertex.Position.Y));
-                    writer.Write(Deflate(z, vertex.Position.Z));
-                }
-                writer.WritePadding(4);
+                bin.WritePadding(4);
             }
-            writer.WriteFourCC("rsrc");
+            bin.WriteFourCC("rsrc");
+            resource[4] = new DResource(56, 1, this.Vertices.Length * sizeof(ushort) * 2, (int)(bin.BaseStream.Position - resource_data_start_offset), true);
             {
-                Range u = new Range();
-                Range v = new Range();
                 foreach (var vertex in this.Vertices)
                 {
-                    u = Range.Include(u, vertex.TextureCoordinates.X);
-                    v = Range.Include(v, vertex.TextureCoordinates.Y);
+                    bin.Write(Deflate(Compression.U, vertex.TextureCoordinates.X));
+                    bin.Write(Deflate(Compression.V, vertex.TextureCoordinates.Y));  // flip this still?
                 }
-                foreach (var vertex in this.Vertices)
-                {
-                    writer.Write(Deflate(u, vertex.TextureCoordinates.X));
-                    writer.Write(Deflate(v, vertex.TextureCoordinates.Y));  // flip this still?
-                }              
             }
-            writer.WriteFourCC("rsrc");
+            bin.WriteFourCC("rsrc");
+            resource[5] = new DResource(56, 2, this.Vertices.Length * sizeof(uint) * 3, (int)(bin.BaseStream.Position - resource_data_start_offset), true);
             foreach (var vertex in this.Vertices)
             {
-                writer.Write((uint)vertex.Normal);
-                writer.Write(0);
-                writer.Write(0);
+                bin.Write((uint)(Vector3t)vertex.Normal);    //cast to vector3t is destructive...
+                bin.Write((uint)(Vector3t)vertex.Tangent);
+                bin.Write((uint)(Vector3t)vertex.Bitangent);
             }
-            writer.WriteFourCC("rsrc");
-            writer.Write(0);                // default bone-map (no bones)
-            writer.WriteFourCC("blkf");
+            bin.WriteFourCC("rsrc");
+            resource[6] = new DResource(100, 1, 1, (int)(bin.BaseStream.Position - resource_data_start_offset));
+            bin.Write(0);                // default bone-map (no bones)
+            bin.WriteFourCC("blkf");
+            int resource_size = (int)bin.BaseStream.Position;
+            bin.Seek(4, SeekOrigin.Begin);
+            bin.Write(resource_size - 124);
 
             // debug dump
-            #if DEBUG
+#if DEBUG
             using (var file = File.OpenWrite(@"D:\halo_2\model_raw.bin"))
             {
                 file.Write(buffer.ToArray(), 0, (int)buffer.Length);
             }
-            #endif
+#endif
             // end debug dump
 
             // 2. create a sections meta file for this, a bounding box, heck a whole mesh, why not.
+            resource_out = resource;
+            return buffer.ToArray();
         }
-        public bool ImportFromWavefront(string filename)
+
+        //Taking this code and using it.
+        //http://www.terathon.com/code/tangent.html
+        //void CalculateTangentArray(long vertexCount, const Point3D *vertex, const Vector3D *normal,
+        //const Point2D *texcoord, long triangleCount, const Triangle *triangle, Vector4D *tangent)
+        //{
+        //    Vector3D *tan1 = new Vector3D[vertexCount * 2];
+        //    Vector3D *tan2 = tan1 + vertexCount;
+        //    ZeroMemory(tan1, vertexCount * sizeof(Vector3D) * 2);
+
+        //    for (long a = 0; a < triangleCount; a++)
+        //    {
+        //        long i1 = triangle->index[0];
+        //        long i2 = triangle->index[1];
+        //        long i3 = triangle->index[2];
+
+        //        const Point3D& v1 = vertex[i1];
+        //        const Point3D& v2 = vertex[i2];
+        //        const Point3D& v3 = vertex[i3];
+
+        //        const Point2D& w1 = texcoord[i1];
+        //        const Point2D& w2 = texcoord[i2];
+        //        const Point2D& w3 = texcoord[i3];
+
+        //        float x1 = v2.x - v1.x;
+        //        float x2 = v3.x - v1.x;
+        //        float y1 = v2.y - v1.y;
+        //        float y2 = v3.y - v1.y;
+        //        float z1 = v2.z - v1.z;
+        //        float z2 = v3.z - v1.z;
+
+        //        float s1 = w2.x - w1.x;
+        //        float s2 = w3.x - w1.x;
+        //        float t1 = w2.y - w1.y;
+        //        float t2 = w3.y - w1.y;
+
+        //        float r = 1.0F / (s1 * t2 - s2 * t1);
+        //        Vector3D sdir((t2 * x1 - t1 * x2) * r, (t2 * y1 - t1 * y2) * r,
+        //                (t2 * z1 - t1 * z2) * r);
+        //        Vector3D tdir((s1 * x2 - s2 * x1) * r, (s1 * y2 - s2 * y1) * r,
+        //                (s1 * z2 - s2 * z1) * r);
+
+        //        tan1[i1] += sdir;
+        //        tan1[i2] += sdir;
+        //        tan1[i3] += sdir;
+
+        //        tan2[i1] += tdir;
+        //        tan2[i2] += tdir;
+        //        tan2[i3] += tdir;
+
+        //        triangle++;
+        //    }
+
+        //    for (long a = 0; a < vertexCount; a++)
+        //    {
+        //        const Vector3D& n = normal[a];
+        //        const Vector3D& t = tan1[a];
+
+        //        // Gram-Schmidt orthogonalize
+        //        tangent[a] = (t - n * Dot(n, t)).Normalize();
+
+        //        // Calculate handedness
+        //        tangent[a].w = (Dot(Cross(n, t), tan2[a]) < 0.0F) ? -1.0F : 1.0F;
+        //    }
+
+        //    delete[] tan1;
+        //}
+
+        bool IsDegenerate(ushort strip_index)
         {
-            Log.Info(string.Format("Loading file {0} into memory buffer", filename));
-            byte[] buffer = null;
-            using (var file = File.OpenRead(filename))
-            {
-                buffer = new byte[file.Length];
-                file.Read(buffer, 0, buffer.Length);
-            } if (buffer == null)
-            {
-                Log.Error("Failed to create memory buffer");
-                return false;
-            }
-            MemoryStream stream = new MemoryStream(buffer);
-            StreamReader reader = new StreamReader(stream);
-
-            List<WavefrontObject.Object> objects = new List<WavefrontObject.Object>();
-            List<WavefrontObject.Face> faces = new List<WavefrontObject.Face>();
-            
-            List<ushort> facestream = new List<ushort>();
-
-            List<Vector3> vertex_coords = new List<Vector3>();
-            List<Vector2> texture_coords = new List<Vector2>();
-            List<Vector3> normals = new List<Vector3>();
-
-            bool default_object = true;
-
-            objects.Add(new WavefrontObject.Object());
-
-            Log.Info("Begin parsing Wavefront Object data from buffer");
-            while(!reader.EndOfStream)
-            {
-                string line = reader.ReadLine().Trim();
-                if (line.StartsWith("# "))
-                {
-                    Log.Info(line);
-                    continue;
-                }
-                if (line.StartsWith("o "))
-                {
-                    // if this is the first object token, use the default object
-                    if (default_object) default_object = false;
-                    else
-                    {
-                        Log.Warn(@"Support for multiple wavefront objects per mesh not implemented.
-                                   Meshes can only accept a single wavefront object. Continuing, but only using first object!");
-                        break;
-                    }
-                }
-                else if (line.StartsWith("v "))
-                {
-                    Vector3 vertex;
-                    if (!WavefrontExtensions.TryParseVector3(out vertex, line)) return false;
-                    vertex_coords.Add(vertex);
-                }
-                else if (line.StartsWith("vt "))
-                {
-                    Vector2 texcoord;
-                    if (!WavefrontExtensions.TryParseVector2(out texcoord, line)) return false;
-                    texture_coords.Add(texcoord);
-                }
-                else if (line.StartsWith("vn "))
-                {
-                    Vector3 normal;
-                    if (!WavefrontExtensions.TryParseVector3(out normal, line)) return false;
-                    normals.Add(normal);
-                }
-                else if (line.StartsWith("f "))
-                {
-                    WavefrontObject.Face face;
-                    if (!WavefrontObject.Face.TryParse(line, out face))
-                    {
-                        Log.Error(string.Format("Error parsing line: {0}", line));
-                        return false;
-                    }
-                    else faces.Add(face);
-                }
-            }
-            Log.Info("Success! Finished parsing Wavefront Object data from buffer");
-            //TODO: generate tri-strips
-            //generate sahder-group structs
-            //compress vertex data
-            //create bone map with default bone
-            this.Vertices = new DefaultVertex[vertex_coords.Count];
-            for (int i = 0; i < vertex_coords.Count; ++i)
-            {
-                this.Vertices[i] = new DefaultVertex() { Position = vertex_coords[i] };
-            }
-            ushort[] vertex_indices = new ushort[faces.Count * 3];
-            for (int i = 0; i < faces.Count; i++)
-            {
-                vertex_indices[i * 3 + 0] = (ushort)(faces[i].vertex_indices[0] - 1);
-                vertex_indices[i * 3 + 1] = (ushort)(faces[i].vertex_indices[1] - 1);
-                vertex_indices[i * 3 + 2] = (ushort)(faces[i].vertex_indices[2] - 1);
-            }
-            Adjacencies stripper = new Adjacencies(vertex_indices);
-            Random r = new Random(DateTime.Now.Millisecond);
-            QuickModelView quick_view = new QuickModelView(this, stripper);
-            quick_view.Run();
-            this.Indices = quick_view.GetStrip();
-            this.GenerateNormals();
-            return true;
+            return (IsDegenerate(this.Indices[strip_index], this.Indices[strip_index + 1], this.Indices[strip_index + 2]));
+        }
+        static bool IsDegenerate(ushort ref0, ushort ref1, ushort ref2)
+        {
+            return (ref0 == ref1 || ref0 == ref2 || ref1 == ref2);
         }
 
-        private DefaultVertex[] ExtractVertices(CompressionRanges compression_ranges, byte[] coord_raw, int coord_size, byte[] texcoord_raw, int texcoord_size, byte[] vector_raw, int vector_size)
+        private StandardVertex[] ExtractVertices(DCompressionRanges compression_ranges, byte[] coord_raw, int coord_size,
+            byte[] texcoord_raw, int texcoord_size, byte[] vector_raw, int vector_size)
         {
             int vertex_count = coord_raw.Length / coord_size;
-            DefaultVertex[] vertices = new DefaultVertex[vertex_count];
+            StandardVertex[] vertices = new StandardVertex[vertex_count];
             for (int i = 0; i < vertex_count; ++i)
             {
                 Vector3 position = new Vector3(BitConverter.ToInt16(coord_raw, i * coord_size), BitConverter.ToInt16(coord_raw, (i * coord_size) + 2), BitConverter.ToInt16(coord_raw, (i * coord_size) + 4));
                 Range int16_range = new Range(short.MinValue, short.MaxValue);
-                position.X = Inflate(position.X, compression_ranges.x);
-                position.Y = Inflate(position.Y,  compression_ranges.y);
-                position.Z = Inflate(position.Z,  compression_ranges.z);
+                position.X = Inflate(position.X, compression_ranges.X);
+                position.Y = Inflate(position.Y, compression_ranges.Y);
+                position.Z = Inflate(position.Z, compression_ranges.Z);
                 Vector2 texcoord = new Vector2(BitConverter.ToInt16(coord_raw, i * coord_size), BitConverter.ToInt16(coord_raw, i + 1 * coord_size));
-                texcoord.X = Inflate(position.X,  compression_ranges.u1);
-                texcoord.Y = Inflate(position.Y,  compression_ranges.v1);
-                vertices[i] = new DefaultVertex() { Position = position, TextureCoordinates = texcoord, Normal = new Vector3t(BitConverter.ToUInt32(vector_raw, i * vector_size)) };
+                texcoord.X = Inflate(position.X, compression_ranges.U);
+                texcoord.Y = Inflate(position.Y, compression_ranges.V);
+                vertices[i] = new StandardVertex() { Position = position, TextureCoordinates = texcoord, Normal = (Vector3)new Vector3t(BitConverter.ToUInt32(vector_raw, i * vector_size)) };
             }
             return vertices;
         }
 
         /// <summary>
-        /// Takes a value and converts it into a range from 0.0 to 1.0 stored as a ushort
+        /// Takes a value and converts it into a range then stores the range ratio in a short
         /// </summary>
         /// <param name="input_range"></param>
         /// <param name="value"></param>
-        /// <returns></returns>
-        ushort Deflate(Range input_range, float value)
+        /// <returns>returns the ratio of 'value' in 'input_range' represented as a short<returns>
+        static short Deflate(Range input_range, float value)
         {
-            const float max_ushort = ushort.MaxValue;
-            if (value > input_range.max) value = input_range.max;
-            if (value < input_range.min) value = input_range.min;
-            var ratio = value / input_range.max;
-            return (ushort)(max_ushort * ratio);
+            value = Range.Truncate(input_range, value);                             // Ensure input value is within the expected range
+            var delta = (value - input_range.min);                                  // This projects value into the range with 0 as the lowest value in the range
+            var range_span = input_range.max - input_range.min;                     // The total width of values the range covers
+            var ratio = delta / range_span;                                         // The location in the range which this value resides at
+            var short_value = (short)(ratio * ushort.MaxValue - short.MaxValue);    /* ratio { 0.0 -> 1.0 } * 65535 - 32767
+                                                                                     * the subtration at the end is to maintain a signed value */
+            return short_value;
         }
-        float Inflate(float value_in_range,  Range range)
+        static float Inflate(float value_in_range, Range range)
         {
             const float Max = 1.0f / ushort.MaxValue;
             const float Half = short.MaxValue;
             return (((value_in_range + Half) * Max) * (range.max - range.min)) + range.min;
         }
 
+        #region Laziness
         /// <summary>
-        /// Generating from a list this way is not grande.
+        /// This is the resource 'header' block for the vertex data blocks... 
         /// </summary>
-        /// <returns></returns>
-        internal bool GenerateNormals()
+        static readonly byte[] VERTEX_RESOURCE_HEADER_DATA = new byte[]{
+            0x02, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+            0x19, 0x04, 0x00, 0x00, 
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+            0x00, 0x00, 0x00, 0x00, 
+            0x1B, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        };
+        #endregion
+
+        public class ShaderGroup
         {
-            int ref0, ref1, ref2;
-            bool winding = false;
-            if (Indices == null || Vertices == null) return false;
-            for (int i = 0; i < Indices.Length - 2; i++)
+            short unknown0 = 2;                                     //flags or enum?
+            short unknown1 = 3;                                     //flags or enum?
+            public short shader_index;
+            public ushort strip_start;
+            public ushort strip_end;
+            int unknown2;                                           //byte[4] 00s? not an int32.
+            short s_unknown3 = 1;
+            uint unknown4;                                          //byte[4] 00s?
+            uint unknown5;                                          //byte[4] 00s?
+            uint unknown6;                                          //byte[4] 00s?
+            uint unknown7;                                          //byte[4] 00s?
+            Quaternion unknown8 = new Quaternion(1, 0, 0, 1);       //16 bytes
+            BoundingBox local_bounds;                               //24 bytes
+
+            public ShaderGroup(ushort p1, ushort p2)
             {
-                if (winding)
-                {
-                    ref0 = Indices[i + 0];
-                    ref1 = Indices[i + 1];
-                    ref2 = Indices[i + 2];
-                }
-                else
-                {
-                    ref0 = Indices[i + 0];
-                    ref2 = Indices[i + 1];
-                    ref1 = Indices[i + 2];
-                }
-                Vector3 vec1 = Vertices[ref2].Position - Vertices[ref0].Position;
-                Vector3 vec2 = Vertices[ref1].Position - Vertices[ref0].Position;
-                Vector3 normal = Vector3.Cross(vec1, vec2);
-                normal.Normalize();
-                Vertices[ref0].Normal = (Vector3t)normal;
-                Vertices[ref1].Normal = (Vector3t)normal;
-                Vertices[ref2].Normal = (Vector3t)normal;
-                winding = !winding;
+                // TODO: Complete member initialization
+                strip_start = p1;
+                strip_end = p2;
             }
-            return true;
+
+            public ShaderGroup(BinaryReader binary_reader)
+            {
+                // TODO: Complete member initialization
+                ReadFrom(binary_reader);
+            }
+            /// <summary>
+            /// Really not sure I like this coding style for loading these
+            /// </summary>
+            /// <param name="binary_reader"></param>
+            public void ReadFrom(BinaryReader binary_reader)
+            {
+                unknown0 = binary_reader.ReadInt16();
+                unknown1 = binary_reader.ReadInt16();
+                shader_index = binary_reader.ReadInt16();
+                strip_start = binary_reader.ReadUInt16();
+                strip_end = binary_reader.ReadUInt16();
+                unknown2 = binary_reader.ReadInt32();
+                s_unknown3 = binary_reader.ReadInt16();
+                unknown4 = binary_reader.ReadUInt32();
+                unknown5 = binary_reader.ReadUInt32();
+                unknown6 = binary_reader.ReadUInt32();
+                unknown7 = binary_reader.ReadUInt32();
+                unknown8 = new Quaternion(
+                    binary_reader.ReadSingle(),
+                    binary_reader.ReadSingle(),
+                    binary_reader.ReadSingle(),
+                    binary_reader.ReadSingle()
+                    );
+                local_bounds.ReadFrom(binary_reader);
+
+            }
+            public void WriteTo(BinaryWriter binary_writer)
+            {
+                binary_writer.Write(unknown0);
+                binary_writer.Write(unknown1);
+                binary_writer.Write(shader_index);
+                binary_writer.Write(strip_start);
+                binary_writer.Write(strip_end);
+                binary_writer.Write(unknown2);
+                binary_writer.Write(s_unknown3);
+                binary_writer.Write(unknown4);
+                binary_writer.Write(unknown5);
+                binary_writer.Write(unknown6);
+                binary_writer.Write(unknown7);
+                binary_writer.Write(unknown8.X);
+                binary_writer.Write(unknown8.Y);
+                binary_writer.Write(unknown8.Z);
+                binary_writer.Write(unknown8.W);
+                binary_writer.Write(local_bounds.x.min);
+                binary_writer.Write(local_bounds.x.max);
+                binary_writer.Write(local_bounds.y.min);
+                binary_writer.Write(local_bounds.y.max);
+                binary_writer.Write(local_bounds.z.min);
+                binary_writer.Write(local_bounds.z.max);
+            }
         }
 
-        public struct DefaultVertex
+        public struct BoundingBox
         {
-            public Vector3 Position;
-            public Vector2 TextureCoordinates;
-            public Vector3t Normal;
+            public Range x;
+            public Range y;
+            public Range z;
 
-            public override string ToString()
+            internal void ReadFrom(BinaryReader binary_reader)
             {
-                return string.Format("{0}, {1}, {2}", Position, TextureCoordinates, Normal);
+                x = new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle());
+                y = new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle());
+                z = new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle());
             }
         }
-        struct ShaderGroup
-        {
-            public byte[] data;
-        }
-        public struct Resource
+
+        public class DResource : ITagDefinition
         {
             public byte first_;
             public byte second_;
@@ -409,7 +1009,7 @@ namespace Moonfish.Core.Model
             public int resource_length;
             public int resource_offset;
 
-            public Resource(byte[] buffer)
+            public DResource(byte[] buffer)
             {
                 first_ = buffer[0];
                 second_ = buffer[1];
@@ -419,12 +1019,50 @@ namespace Moonfish.Core.Model
                 resource_length = BitConverter.ToInt32(buffer, 8);
                 resource_offset = BitConverter.ToInt32(buffer, 12);
             }
+
+            public DResource(short address, short element_size, int total_resource_size, int resource_offset, bool first = false)
+            {
+                this.header_address = address;
+                this.header_address_again = address;
+                this.data_size__or__first_index = element_size;
+                if (first) first_ = 2;
+                else first_ = 0x00;
+                second_ = 2;
+                this.resource_length = total_resource_size;
+                this.resource_offset = resource_offset;
+            }
+
+            byte[] ITagDefinition.ToArray()
+            {
+                MemoryStream buffer = new MemoryStream();
+                BinaryWriter bin = new BinaryWriter(buffer);
+                bin.Write(first_);
+                bin.Write(second_);
+                bin.Write(header_address);
+                bin.Write(header_address_again);
+                bin.Write(data_size__or__first_index);
+                bin.Write(resource_length);
+                bin.Write(resource_offset);
+                return buffer.ToArray();
+            }
+
+            void ITagDefinition.FromArray(byte[] buffer)
+            {
+                BinaryReader bin = new BinaryReader(new MemoryStream(buffer));
+                first_ = bin.ReadByte();
+                second_ = bin.ReadByte();
+                header_address = bin.ReadInt16();
+                header_address_again = bin.ReadInt16();
+                data_size__or__first_index = bin.ReadInt16();
+                resource_length = bin.ReadInt32();
+                resource_offset = bin.ReadInt32();
+            }
         }
 
         public void Show()
         {
             QuickModelView render_window = new QuickModelView(this);
-            render_window.Run();
+            render_window.Run(60);
         }
     }
 }

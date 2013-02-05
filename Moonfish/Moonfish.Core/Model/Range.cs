@@ -25,5 +25,28 @@ namespace Moonfish.Core.Model
             if (x.max < p) max = p;
             return new Range(min, max);
         }
+
+        internal static Range Expand(Range x, float p)
+        {
+            float min = x.min;
+            float max = x.max;
+            min -= p;
+            max += p;
+            return new Range(min, max);
+        }
+
+        /// <summary>
+        /// Truncates the passed value to the closest value in range if value is outside of the range (range.min or range.max)
+        /// Else returns the value unchanged.
+        /// </summary>
+        /// <param name="range">The range of values to check against</param>
+        /// <param name="value">The value to truncate</param>
+        /// <returns>The truncated value</returns>
+        internal static float Truncate(Range range, float value)
+        {
+            if (value < range.min) return range.min;
+            if (value > range.max) return range.max;
+            return value;
+        }
     }
 }

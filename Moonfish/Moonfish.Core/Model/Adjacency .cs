@@ -334,7 +334,7 @@ namespace Moonfish.Core.Model.Adjacency
                 }
                 writer.Write(strip.indices[strip.indices.Length - 1]);
                 even = strip.indices.Length % 2 == 0;
-            } //buffer.SetLength(buffer.Length - 2);
+            } buffer.SetLength(buffer.Length - 2);
 
 
             ushort[] return_buffer = new ushort[buffer.Length/2];

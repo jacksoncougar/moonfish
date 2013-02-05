@@ -58,20 +58,22 @@
     <Compile Include="Definitions\antenna.cs" />
     <Compile Include="Definitions\bitmap_collection.cs" />
     <Compile Include="Definitions\model.cs" />
+    <Compile Include="Definitions\model_definitions.cs" />
     <Compile Include="Definitions\prt3.cs" />
     <Compile Include="Definitions\shader.cs" />
     <Compile Include="Experimental.cs" />
     <Compile Include="Extensions.cs" />
-    <Compile Include="Game.cs" />
+    <Compile Include="Model\QuickModelView.cs" />
     <Compile Include="Globals.cs" />
     <Compile Include="ITagBlockInterface.cs" />
     <Compile Include="MapStream.cs" />
     <Compile Include="Memory.cs" />
+    <Compile Include="Model\TriangleStrip.cs" />
     <Compile Include="Model\Vector3t.cs" />
+    <Compile Include="Model\Vertex.cs" />
     <Compile Include="Model\WavefrontObject.cs" />
     <Compile Include="Padding.cs" />
     <Compile Include="Model\Adjacency .cs" />
-    <Compile Include="Model\CompressionRanges.cs" />
     <Compile Include="Model\Model.cs" />
     <Compile Include="Model\RadixSorter.cs" />
     <Compile Include="Model\Range.cs" />
@@ -83,6 +85,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <Content Include="etc\default.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

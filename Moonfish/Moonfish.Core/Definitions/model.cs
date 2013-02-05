@@ -7,11 +7,19 @@ namespace Moonfish.Core
     [TagClass("mode")]
     public class model : TagBlock
     {
+        public TagBlockList<BoundingBox> Compression { get { return this.fixed_fields[1].Object as TagBlockList<BoundingBox>; } }
+        public TagBlockList<Region> Regions { get { return this.fixed_fields[2].Object as TagBlockList<Region>; } }
         public TagBlockList<Section> Sections { get { return this.fixed_fields[3].Object as TagBlockList<Section>; } }
+        public TagBlockList<Group> Groups { get { return this.fixed_fields[5].Object as TagBlockList<Group>; } }
+        public TagBlockList<Node> Nodes { get { return this.fixed_fields[6].Object as TagBlockList<Node>; } }
+        public TagBlockList<MarkerGroup> MarkerGroups { get { return this.fixed_fields[7].Object as TagBlockList<MarkerGroup>; } }
+        public TagBlockList<Shader> Shaders { get { return this.fixed_fields[8].Object as TagBlockList<Shader>; } }
+
         public BoundingBox GetBoundingBox() { return (this.fixed_fields[1].Object as TagBlockList<BoundingBox>)[0]; }
+
         public model()
             : base(132, new TagBlockField[]{
-            new TagBlockField(new string_id()),
+            new TagBlockField(new StringID()),
             new TagBlockField(null, 16),
             new TagBlockField(new TagBlockList<BoundingBox>()),
             new TagBlockField(new TagBlockList<Region>()),
@@ -30,33 +38,35 @@ namespace Moonfish.Core
 
         public class BoundingBox : TagBlock
         {
-            public CompressionRanges GetCompressionRanges()
-            {
-                BinaryReader binary_reader = new BinaryReader(this.GetMemory());
-                return new CompressionRanges(
-                     x: new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
-                     y: new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
-                     z: new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
-                     u1: new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
-                     v1: new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
-                     u2: new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle()),
-                     v2: new Range(binary_reader.ReadSingle(), binary_reader.ReadSingle())
-                    );
-            }
             public BoundingBox() : base(56) { }
+
+            public BoundingBox(Definitions.DCompressionRanges compression_ranges)
+                : this()
+            {
+                // TODO: Complete member initialization
+                SetDefinitionData(compression_ranges);
+            }
         }
         public class Region : TagBlock
         {
+            public TagBlockList<Permutation> Permutations { get { return this.fixed_fields[1].Object as TagBlockList<Permutation>; } }
+
             public Region()
                 : base(16, new TagBlockField[]{
-            new TagBlockField(new string_id()),
+            new TagBlockField(new StringID()),
             new TagBlockField(null, 4),
             new TagBlockField(new TagBlockList<Permutation>()),
             }) { }
 
+            public Region(Definitions.DRegion dRegion)
+                : this()
+            {
+                this.SetDefinitionData(dRegion);
+            }
+
             public class Permutation : TagBlock
             {
-                public Permutation() : base(16, new TagBlockField(new string_id())) { }
+                public Permutation() : base(16, new TagBlockField(new StringID())) { }
             }
         }
         public class Section : TagBlock
@@ -67,11 +77,11 @@ namespace Moonfish.Core
                 binary_reader.BaseStream.Position = 56;
                 return new ModelPointer() { Address = binary_reader.ReadInt32(), Length = binary_reader.ReadInt32() };
             }
-            IEnumerable<Resource> Resources { get { return base.fixed_fields[1].Object as IEnumerable<Resource>; } }
-            public Model.Mesh.Resource[] GetSectionResources()
+            public TagBlockList<Resource> Resources { get { return base.fixed_fields[1].Object as TagBlockList<Resource>; } }
+            public Model.Mesh.DResource[] GetSectionResources()
             {
                 var resources = this.Resources.ToArray();
-                Model.Mesh.Resource[] section_resources = new Model.Mesh.Resource[resources.Length];
+                Model.Mesh.DResource[] section_resources = new Model.Mesh.DResource[resources.Length];
                 for (int i = 0; i < section_resources.Length; ++i)
                 {
                     section_resources[i] = resources[i].GetResource();
@@ -93,17 +103,29 @@ namespace Moonfish.Core
             new TagBlockField(new TagBlockList<Resource>()),
             new TagBlockField(new tag_id()),
             }) { }
+
+            public Section(Definitions.DSection dSection)
+                : this()
+            {
+                // TODO: Complete member initialization
+                this.SetDefinitionData(dSection);
+            }
             public class tagblock1_0 : TagBlock
             {
                 public tagblock1_0() : base(88) { }
             }
             public class Resource : TagBlock
             {
-                public Model.Mesh.Resource GetResource()
+                public Model.Mesh.DResource GetResource()
                 {
-                    return new Model.Mesh.Resource(this.GetMemory().ToArray());
+                    return new Model.Mesh.DResource(this.GetMemory().ToArray());
                 }
                 public Resource() : base(16) { }
+
+                public Resource(Mesh.DResource dResource):this()
+                {
+                    this.SetDefinitionData(dResource);
+                }
             }
         }
         public class tagblock0_3 : TagBlock
@@ -112,11 +134,19 @@ namespace Moonfish.Core
         }
         public class Group : TagBlock
         {
+
             public Group()
                 : base(12,
                     new TagBlockField(null, 4),
                     new TagBlockField(new TagBlockList<CompoundNode>())
                     ) { }
+
+            public Group(Definitions.DGroup dGroup)
+                : this()
+            {
+                // TODO: Complete member initialization
+                this.SetDefinitionData(dGroup);
+            }
 
             public class CompoundNode : TagBlock
             {
@@ -127,14 +157,20 @@ namespace Moonfish.Core
         {
             public Node()
                 : base(96,
-                    new TagBlockField(new string_id())
+                    new TagBlockField(new StringID())
                     ) { }
+
+            public Node(Definitions.DNode dNode)
+                : this()
+            {
+                this.SetDefinitionData(dNode);
+            }
         }
         public class MarkerGroup : TagBlock
         {
             public MarkerGroup()
                 : base(12,
-                    new TagBlockField(new string_id()),
+                    new TagBlockField(new StringID()),
                     new TagBlockField(new TagBlockList<Marker>())
                     ) { }
             public class Marker : TagBlock
@@ -145,11 +181,17 @@ namespace Moonfish.Core
         public class Shader : TagBlock
         {
             public Shader()
-                : base(8,
+                : base(32,
                     new TagBlockField(new tag_pointer()),
                     new TagBlockField(new tag_pointer()),
                     new TagBlockField(new TagBlockList<tagblock1_0>())
                     ) { }
+
+            public Shader(Definitions.DShader dShader)
+                : this()
+            {
+                this.SetDefinitionData(dShader);
+            }
             public class tagblock1_0 : TagBlock
             {
                 public tagblock1_0() : base(8) { }

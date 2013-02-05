@@ -1,9 +1,5 @@
 ﻿using Moonfish.Core;
 using Moonfish.Core.Model;
-using SlimDX;
-using SlimDX.Direct3D11;
-using SlimDX.DXGI;
-using SlimDX.Windows;
 using System.Collections.Generic;
 using System.IO;
 using System.Drawing;
@@ -17,52 +13,76 @@ namespace Moonfish.Debug
         static void Main(string[] args)
         {
             Console.WriteLine("Moonfish Core:");
-            //Console.ReadKey();
             Log.OnLog = new Log.LogMessageHandler(Console.WriteLine);
-            //Log.OnLog  = new Log.LogMessageHandler(
-            //Moonfish.Core.Raw.RadixSorter radsort = new Core.Raw.RadixSorter();
-            //return;
-            MapStream map = new MapStream(@"C:\Users\stem\Documents\headlong.map");
-            model tag = (model)map.GetTag(map.FindFirst((tag_class)"mode", "bridge_light"));
-            var raw = tag.Sections[0].GetRawPointer();
-            map.Position = raw.Address;
-            byte[] raw_data = new byte[raw.Length];
-            map.Read(raw_data, 0, raw_data.Length);
-            //using (BinaryWriter writer = new BinaryWriter(File.Create(@"D:\halo_2\box.bin")))
-            //{
-            //    writer.Write(raw_data);
-            //}
+            var wavefront_object = @"D:\halo_2\quadshere-x.obj";
+            var folder = @"D:\halo_2\temp\";
+            var tagname = string.Format(@"_remnant\custom\{0}\objects\{1}\{1}", DateTime.Now.Ticks, "debug");
             Mesh mesh_data = new Mesh();
-            //mesh_data.Load(raw_data, tag.Sections[0].GetSectionResources(), tag.GetBoundingBox().GetCompressionRanges());
-            //mesh_data.Show();
-            //mesh_data.Serialize();
-            if (mesh_data.ImportFromWavefront(@"D:\halo_2\monkey.obj"))
+            if (mesh_data.ImportFromWavefront(wavefront_object))
+            {
+                mesh_data.ExportForEntity(folder, tagname);
+                Mesh mesh_data2 = new Mesh();
+                Moonfish.Core.Model.Mesh.DResource[] outs;
+                byte[] buffer = mesh_data.Serialize(out outs);
+                mesh_data2.Load(buffer, outs, mesh_data.Compression);
                 mesh_data.Show();
-            //mesh_data.Load(raw_data, tag.Sections[0].GetSectionResources(), tag.GetBoundingBox().GetCompressionRanges());
+            }
+        }
+        static void _Main(string[] args)
+        {
+            Console.WriteLine("Moonfish Core:");
+            Log.OnLog = new Log.LogMessageHandler(Console.WriteLine);
+            string source_filename = string.Empty;
+            string desination_folder = string.Empty;
+            string tagname = string.Empty;
+            bool exit = false;
+            while (!exit)
+            {
+                
+                Console.WriteLine(
+@"Commands: -s [filename] -d [folder] -tn [tagname] or -x to exit
+[filename] is the source file (wavefront.obj)
+[folder] is the destination location for tag export
+[tagname] is the name of the tag in the map");
+                source_filename = string.Empty;
+                desination_folder = string.Empty;
+                tagname = string.Empty; 
+                for (int i = 0; i < args.Length; ++i)
+                {
+                    if (args[i].ToLower() == "-x")
+                    {
+                        exit = true;
+                        break;
+                    }
+                    if (args[i].ToLower() == "-s")
+                    {
+                        source_filename = args[i + 1];
+                    }
+                    else if (args[i].ToLower() == "-d")
+                    {
+                        desination_folder = args[i + 1];
+                    }
+                    else if (args[i].ToLower() == "-tn")
+                    {
+                        tagname = args[i + 1];
+                    } 
+                    if (source_filename != string.Empty && desination_folder != string.Empty && tagname != string.Empty)
+                    {
+                        Mesh mesh_data = new Mesh();
+                        if (mesh_data.ImportFromWavefront(source_filename))
+                        {
+                            mesh_data.ExportForEntity(desination_folder, tagname);
+                            Mesh mesh_data2 = new Mesh();
+                            Moonfish.Core.Model.Mesh.DResource[] outs;
+                            byte[] buffer = mesh_data.Serialize(out outs);
+                            mesh_data2.Load(buffer, outs, mesh_data.Compression);
+                            mesh_data.Show();
+                        }
+                    }
+                }
+                args = Console.ReadLine().Split(' ');
+            }           
             
-            return;
-            //map.Tags[map.FindFirst((tag_class)"mode", "default_object")]);
-            //Moonfish.Core.Model.Mesh mesh = new Moonfish.Core.Model.Mesh();
-            //if (meta.Type == (tag_class)"mode")
-            //{
-            //    model collection = (model)block;
-            //    foreach (var bitmap in collection.Sections)
-            //    {
-            //        var resource = bitmap.GetRawPointer();
-            //        BinaryReader bin_reader = new BinaryReader(this);
-            //        bin_reader.BaseStream.Position = resource.Address;
-            //        raw_data.Write(bin_reader.ReadBytes(resource.Length), 0, resource.Length);
-            //        {//because
-            //            {//fuck you
-            //                Mesh mesh = new Mesh();
-            //                mesh.Load(raw_data.ToArray(), bitmap.GetSectionResources(), collection.GetBoundingBox().GetCompressionRanges());
-            //                //mesh.ExportAsWavefront(@"D:\halo_2\wavefront.obj");
-            //            }
-            //        }
-            //    }
-            ////}
-            //mesh.ImportFromWavefront(@"D:\halo_2\untitled.obj");
-            return;
             return;
         }
     }

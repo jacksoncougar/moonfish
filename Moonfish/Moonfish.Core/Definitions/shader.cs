@@ -11,7 +11,7 @@ namespace Moonfish.Core
         public shader()
             : base(84, new TagBlockField[]{
                 new TagBlockField(new tag_pointer()),
-                new TagBlockField(new string_id()),
+                new TagBlockField(new StringID()),
                 new TagBlockField(new TagBlockList<tagblock0>()),
                 new TagBlockField(null, 12),
                 new TagBlockField(new TagBlockList<tagblock1>()),
@@ -85,8 +85,8 @@ namespace Moonfish.Core
             {
                 public tagblock1_7()
                     : base(20, new TagBlockField[] { 
-                    new TagBlockField(new string_id()),
-                    new TagBlockField(new string_id()),
+                    new TagBlockField(new StringID()),
+                    new TagBlockField(new StringID()),
                     new TagBlockField(null, 4),
                     new TagBlockField(new ByteArray()),
                 }) { }

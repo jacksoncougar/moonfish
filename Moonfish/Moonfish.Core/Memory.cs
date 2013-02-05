@@ -26,6 +26,7 @@ namespace Moonfish.Core
         int Address { get; set; }
         int Alignment { get; }
         int SizeOf { get; }
+        void CopyTo(Stream stream);
     }
 
     public class Memory : MemoryStream
@@ -89,6 +90,8 @@ namespace Moonfish.Core
         {
             start_address = translation;
         }
+        public Memory()
+            : base() { }
         public bool Contains(IPointable calling_object)
         {
             return (calling_object.Address - start_address >= 0
@@ -101,7 +104,34 @@ namespace Moonfish.Core
             else return null;
         }
 
+        /// <summary>
+        /// This is a really poorly implemented way to parse a tagblock, and write it to a stream...
+        /// </summary>
+        /// <param name="source"></param>
+        /// <param name="stream"></param>
+        /// <returns></returns>
+        public static bool Map(TagBlock source, Stream stream)
+        {
+            //calculate pointers for all the tagblocks, then set thier pointers
+            //then copy all the memory to a single memory.
+            var start_offset = stream.Position;
+            stream.Write(source.GetMemory().ToArray(), 0, (source as IPointable).SizeOf);//reserve
+            (source as IPointable).CopyTo(stream);
+            stream.Position = start_offset;
+            stream.Write(source.GetMemory().ToArray(), 0, (source as IPointable).SizeOf);//update
+            //return true;
+            //using (BinaryWriter bin = new BinaryWriter(File.Create(@"D:\debug.meta")))
+            //{
+            //    bin.Write(memory.ToArray());
+            //}
+            return true;
+        }
 
+        public struct FixedPointer
+        {
+            int address;
+            int count;
+        }
         public struct mem_ref
         {
             public IPointable client;

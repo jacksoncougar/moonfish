@@ -9,12 +9,17 @@ using System.Globalization;
 
 namespace Moonfish.Core
 {
-    public struct tag_pointer : IField, IReference<TagIdentifier>, IReference<TagClass>
+    public class tag_pointer : IField
     {
         IStructure parent;
         TagClass tag_class;
         TagIdentifier tag_identifier; 
         const int size = 8;
+
+        public static implicit operator TagIdentifier(tag_pointer pointer)
+        {
+            return pointer.tag_identifier;
+        }
 
         byte[] IField.GetFieldData()
         {
@@ -38,39 +43,6 @@ namespace Moonfish.Core
         void IField.Initialize(IStructure calling_structure)
         {
             parent = calling_structure;
-        }
-
-        TagIdentifier IReference<TagIdentifier>.GetToken()
-        {
-            return tag_identifier;
-        }
-
-        void IReference<TagIdentifier>.SetToken(TagIdentifier token)
-        {
-            tag_identifier = token;
-            parent.SetField(this);
-        }
-
-        TagClass IReference<TagClass>.GetToken()
-        {
-            return (TagClass)tag_class;
-        }
-
-        void IReference<TagClass>.SetToken(TagClass token)
-        {
-            tag_class = token;
-            parent.SetField(this);
-        }
-
-        bool IReference<TagIdentifier>.IsNullReference
-        {
-            get { return (this.tag_identifier == TagIdentifier.null_identifier); }
-        }
-
-
-        bool IReference<TagClass>.IsNullReference
-        {
-            get { return ((int)this.tag_class == -1); }
         }
     }
 
@@ -160,32 +132,33 @@ namespace Moonfish.Core
         }
     }
 
-    public struct TagIdentifier : IField
+    public class TagIdentifier : IField
     {
         IStructure parent;
         const short SaltValue = -7820;
-
-        public readonly short Index;
-        readonly  short salt_;
+        short index;
+        public short Index { get { return index; } }
+        short salt_;
 
         public TagIdentifier(short index)
         {
             parent = default(IStructure);
-            Index = index;
+            this.index = index;
             salt_ = (short)(SaltValue + index);
         }
         public TagIdentifier(short index, short salt)
         {
             parent = default(IStructure);
-            this.Index = index;
+            this.index = index;
             this.salt_ = salt;
         }
         public TagIdentifier(TagIdentifier copy)
         {
-            this.Index = copy.Index;
+            this.index = copy.Index;
             this.salt_ = copy.salt_;
             this.parent = copy.parent;
         }
+        public TagIdentifier() { }
 
         public static implicit operator int(TagIdentifier tagIndex)
         {
@@ -211,7 +184,14 @@ namespace Moonfish.Core
 
         void IField.SetFieldData(byte[] field_data, IStructure caller)
         {
-            this = new TagIdentifier(BitConverter.ToInt32(field_data, 0));
+            this.Copy(new TagIdentifier(BitConverter.ToInt32(field_data, 0)));
+        }
+
+        private void Copy(TagIdentifier copy)
+        {
+            this.index = copy.Index;
+            this.salt_ = copy.salt_;
+            this.parent = copy.parent;
         }
 
         int IField.SizeOfField

@@ -7,6 +7,14 @@ namespace Moonfish.Core
     public interface IArrayField
     {
         int Address { get; set; }
+        IEnumerable<IAField> Fields { get; }
+        //count
+        //size  
+    }
+
+    public interface IAField
+    {
+        int Size { get; }
     }
 
     public interface IField

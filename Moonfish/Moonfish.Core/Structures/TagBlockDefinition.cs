@@ -165,10 +165,16 @@ namespace Moonfish.Core
                 throw new NotImplementedException();
             }
         }
+
+
+        IEnumerable<IAField> IArrayField.Fields
+        {
+            get { foreach (IAField item in this) yield return item; }
+        }
     }
 
-    public abstract class TagBlock : IStructure, IPointable, 
-        IEnumerable<TagBlockField>, IEnumerable<StringID>, IEnumerable<TagIdentifier>, IEnumerable<IArrayField>
+    public abstract class TagBlock : IStructure, IPointable,  IAField,
+        IEnumerable<TagBlockField>, IEnumerable<StringID>, IEnumerable<TagIdentifier>, IEnumerable<tag_pointer>, IEnumerable<IArrayField>
     {
         const int DefaultAlignment = 4;
         protected readonly int size;
@@ -252,6 +258,7 @@ namespace Moonfish.Core
         {
             return fixed_fields[field_index].Object as IField;
         }
+
 
         IEnumerator<TagBlockField> IEnumerable<TagBlockField>.GetEnumerator()
         {
@@ -341,72 +348,62 @@ namespace Moonfish.Core
         /// <returns>Returns a sequence of ALL string_ids in ALL nested tag_blocks supporting string_id enumeration</returns>
         IEnumerator<StringID> IEnumerable<StringID>.GetEnumerator()
         {
-            foreach (TagBlockField field in this.fixed_fields)
+            foreach (var subitem in this.GetEnumeratorsRecursively<StringID>())
             {
-                if (field.Object is StringID)
-                    yield return (StringID)field.Object;
-                else
-                {
-                    // if this is a collection of tagblocks, enumerate each item
-                    var tagblock_interface__ = field.Object as IEnumerable<TagBlock>;
-                    if (tagblock_interface__ != null) foreach (var item in tagblock_interface__)
-                        {
-                            // if this item supports string_id enumeration, enumerate each string_id
-                            var stringid_interface__ = item as IEnumerable<StringID>;
-                            if (stringid_interface__ != null) foreach (var string_id in stringid_interface__)
-                                {
-                                    // yield each string
-                                    yield return string_id;
-                                }
-                        }
-                }
+                yield return subitem;
             }
         }
         IEnumerator<TagIdentifier> IEnumerable<TagIdentifier>.GetEnumerator()
         {
+            List<TagIdentifier> items = new List<TagIdentifier>(this.GetEnumeratorsRecursively<TagIdentifier>());
+            List<tag_pointer> pointer_items = new List<tag_pointer>(this.GetEnumeratorsRecursively<tag_pointer>());
+            items.AddRange(pointer_items.Select(x => (TagIdentifier)x).ToArray());
+            foreach (var subitem in items)
+            {
+                yield return subitem;
+            }
+        }
+        IEnumerable<T> GetEnumeratorsRecursively<T>() where T : class
+        {
+            List<T> buffer = new List<T>();
             foreach (TagBlockField field in this.fixed_fields)
             {
-                if (field.Object is TagIdentifier)
-                    yield return (TagIdentifier)field.Object;
-                else
+                T array;
+                if ((array = field.Object as T) != null)
                 {
-                    // if this is a collection of tagblocks, enumerate each item
-                    var tagblock_interface__ = field.Object as IEnumerable<TagBlock>;
-                    if (tagblock_interface__ != null) foreach (var item in tagblock_interface__)
-                        {
-                            // if this item supports string_id enumeration, enumerate each string_id
-                            var tagid_interface__ = item as IEnumerable<TagIdentifier>;
-                            if (tagid_interface__ != null) foreach (var tag_id in tagid_interface__)
-                                {
-                                    // yield each tag
-                                    yield return tag_id;
-                                }
-                        }
+                    buffer.Add(array);
                 }
+                IEnumerable<TagBlock> tagblock_interface__;
+                if ((tagblock_interface__ = field.Object as IEnumerable<TagBlock>) != null)
+                {
+                    foreach (var item in tagblock_interface__)
+                    {
+                        IEnumerable<T> tagid_interface__;
+                        if ((tagid_interface__ = item as IEnumerable<T>) != null)
+                            buffer.AddRange(item.GetEnumeratorsRecursively<T>());
+                    }
+                }
+            }
+            return buffer;
+        }
+        IEnumerator<IArrayField> IEnumerable<IArrayField>.GetEnumerator()
+        {
+            foreach (var subitem in this.GetEnumeratorsRecursively<IArrayField>())
+            {
+                yield return subitem;
             }
         }
 
-        IEnumerator<IArrayField> IEnumerable<IArrayField>.GetEnumerator()
+        int IAField.Size
         {
-            foreach (TagBlockField field in this.fixed_fields)
+            get { return this.size; }
+        }
+
+        IEnumerator<tag_pointer> IEnumerable<tag_pointer>.GetEnumerator()
+        {
+            foreach (var subitem in this.GetEnumeratorsRecursively<tag_pointer>())
             {
-                if (field.Object is IArrayField)
-                    yield return (IArrayField)field.Object;
-                else
-                {
-                    // if this is a collection of tagblocks, enumerate each item
-                    var tagblock_interface__ = field.Object as IEnumerable<TagBlock>;
-                    if (tagblock_interface__ != null) foreach (var item in tagblock_interface__)
-                        {
-                            // if this item supports string_id enumeration, enumerate each string_id
-                            var tagid_interface__ = item as IEnumerable<IArrayField>;
-                            if (tagid_interface__ != null) foreach (var tag_id in tagid_interface__)
-                                {
-                                    // yield each tag
-                                    yield return tag_id;
-                                }
-                        }
-                }
+                yield return subitem;
             }
         }
     }

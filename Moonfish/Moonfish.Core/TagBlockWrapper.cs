@@ -23,7 +23,7 @@ namespace Moonfish.Core
         TagBlock tag_;
         List<KeyValuePair<StringID, string>> local_strings_ = new List<KeyValuePair<StringID, string>>();
         HashSet<TagIdentifier> tag_ids_ = new HashSet<TagIdentifier>();
-        List<int> tag_blocks = new List<int>();
+        List<object> tag_blocks = new List<object>();
 
         public TagWrapper(TagBlock tag, MapStream map)
         {
@@ -45,9 +45,13 @@ namespace Moonfish.Core
             {
                 tag_ids_.Add(tag_id);
             }
-            foreach( IArrayField array in tag as IEnumerable<IArrayField>)
+            /*Intent: to build a list of all tagblock addresses in tag
+             */
+            foreach (var array in tag as IEnumerable<IArrayField>)
             {
-                tag_blocks.Add(array.Address);
+                var address = array.Address;
+                if (array.Fields.Count() > 0)
+                    tag_blocks.Add(new { Address = address, Size = array.Fields.First().Size, Count = array.Fields.Count()});
             }
         }
     }

@@ -9,11 +9,11 @@ using System.Globalization;
 
 namespace Moonfish.Core
 {
-    public struct tag_pointer : IField, IReference<tag_id>, IReference<tag_class>
+    public struct tag_pointer : IField, IReference<TagIdentifier>, IReference<TagClass>
     {
         IStructure parent;
-        tag_class tag_class;
-        tag_id tag_identifier; 
+        TagClass tag_class;
+        TagIdentifier tag_identifier; 
         const int size = 8;
 
         byte[] IField.GetFieldData()
@@ -26,7 +26,7 @@ namespace Moonfish.Core
 
         void IField.SetFieldData(byte[] field_data, IStructure caller)
         {
-            tag_class = (tag_class)BitConverter.ToInt32(field_data, 0);
+            tag_class = (TagClass)BitConverter.ToInt32(field_data, 0);
             tag_identifier = BitConverter.ToInt32(field_data, 4);
         }
 
@@ -40,81 +40,108 @@ namespace Moonfish.Core
             parent = calling_structure;
         }
 
-        tag_id IReference<tag_id>.GetToken()
+        TagIdentifier IReference<TagIdentifier>.GetToken()
         {
             return tag_identifier;
         }
 
-        void IReference<tag_id>.SetToken(tag_id token)
+        void IReference<TagIdentifier>.SetToken(TagIdentifier token)
         {
             tag_identifier = token;
             parent.SetField(this);
         }
 
-        tag_class IReference<tag_class>.GetToken()
+        TagClass IReference<TagClass>.GetToken()
         {
-            return (tag_class)tag_class;
+            return (TagClass)tag_class;
         }
 
-        void IReference<tag_class>.SetToken(tag_class token)
+        void IReference<TagClass>.SetToken(TagClass token)
         {
             tag_class = token;
             parent.SetField(this);
         }
 
-        bool IReference<tag_id>.IsNullReference
+        bool IReference<TagIdentifier>.IsNullReference
         {
-            get { return (this.tag_identifier == tag_id.null_identifier); }
+            get { return (this.tag_identifier == TagIdentifier.null_identifier); }
         }
 
 
-        bool IReference<tag_class>.IsNullReference
+        bool IReference<TagClass>.IsNullReference
         {
             get { return ((int)this.tag_class == -1); }
         }
     }
 
-    public struct tag_class : IEquatable<tag_class>
+    public struct TagClass : IEquatable<TagClass>
     {
-        private readonly byte[] fourcc_;
+        private readonly byte a;
+        private readonly byte b;
+        private readonly byte c;
+        private readonly byte d;
 
-        public tag_class(byte[] fourcc)
+        public TagClass(params byte[] bytes)
         {
-            //  initialize our array to null, length 4
-            fourcc_ = new byte[4];
-            //  copy bytes from input to output, clamping the number of bytes to copy to within 4
-            Array.Copy(fourcc, 0, fourcc_, 0, fourcc.Length % 5);
+            a = default(byte);
+            b = default(byte);
+            c = default(byte);
+            d = default(byte);
+            switch (bytes.Length)
+            {
+                case 4:
+                    d = bytes[3];
+                    goto case 3;
+                case 3:
+                    c = bytes[2];
+                    goto case 2;
+                case 2:
+                    b = bytes[1];
+                    goto case 1;
+                case 1:
+                    a = bytes[0];
+                    break;
+                case 0:                 // Check if there are no bytes passed
+                    break;
+                default:                // The defualt case is now byte.Length > 4 so goto case 4 and truncate
+                    goto case 4;
+            }
         }
 
-        public static explicit operator tag_class(string str)
+        public static explicit operator TagClass(string str)
         {
-            return new tag_class(Encoding.UTF8.GetBytes(new string(str.ToCharArray().Reverse().ToArray())));
+            return new TagClass(Encoding.UTF8.GetBytes(new string(str.ToCharArray().Reverse().ToArray())));
         }
 
-        public static explicit operator string(tag_class str)
+        public static explicit operator string(TagClass tagclass)
         {
-            return str.ToString();
+            return tagclass.ToString();
         }
 
-        public static explicit operator tag_class(int integer)
+        public static explicit operator TagClass(int integer)
         {
-            return new tag_class(BitConverter.GetBytes(integer));
+            return new TagClass(BitConverter.GetBytes(integer));
         }
 
-        public static explicit operator int(tag_class type)
+        public static explicit operator int(TagClass type)
         {
-            return BitConverter.ToInt32(type.fourcc_, 0);
+            return BitConverter.ToInt32(new byte[] { type.a, type.b, type.c, type.d }, 0);
         }
 
-        public static bool operator ==(tag_class object1, tag_class object2)
+        public static bool operator ==(TagClass object1, TagClass object2)
         {
             return (int)object1 == (int)object2;
         }
 
+        public static bool operator !=(TagClass object1, TagClass object2)
+        {
+            return (int)object1 != (int)object2;
+        }
+
         public override bool Equals(object obj)
         {
-            if (!(obj is tag_class)) return false;
-            return this == (tag_class)obj;
+            if (!(obj is TagClass)) return false;
+            return this == (TagClass)obj;
         }
 
         public override int GetHashCode()
@@ -122,76 +149,57 @@ namespace Moonfish.Core
             int i = (int)this; return i.GetHashCode();
         }
 
-        public static bool operator !=(tag_class object1, tag_class object2)
-        {
-            return (int)object1 != (int)object2;
-        }
-
         public override string ToString()
         {
-            return new string(Encoding.UTF8.GetString(fourcc_, 0, 4).ToCharArray().Reverse().ToArray());
+            return Encoding.UTF8.GetString(new byte[] { d, c, b, a });
         }
-
-        string ToReverseString()
-        {
-            throw new NotSupportedException();
-            //byte[] fourcc_copy = new byte[4];
-            //Buffer.BlockCopy(fourcc_, 0, fourcc_copy, 0, 4);
-            //Array.Reverse(fourcc_copy);
-            //return Encoding.UTF8.GetString(fourcc_copy, 0, 4);
-        }
-
-        string ToPathSafeString()
-        {
-            throw new NotSupportedException();
-            //StringBuilder builder = new StringBuilder(this.ToString());
-            //foreach (char c in Path.GetInvalidPathChars())
-            //    builder.Replace(c, ' ');
-            //return builder.ToString().Trim();
-        }
-
-        bool IEquatable<tag_class>.Equals(tag_class other)
+        
+        bool IEquatable<TagClass>.Equals(TagClass other)
         {
             return this == other;
         }
     }
 
-    public struct tag_id : IField
+    public struct TagIdentifier : IField
     {
         IStructure parent;
-        const short DATUM = -7820;
+        const short SaltValue = -7820;
 
-        public short Index;
+        public readonly short Index;
+        readonly  short salt_;
 
-        short salt;
-
-        public tag_id(short index)
+        public TagIdentifier(short index)
         {
             parent = default(IStructure);
             Index = index;
-            salt = (short)(DATUM + index);
+            salt_ = (short)(SaltValue + index);
         }
-
-        public tag_id(short index, short salt)
+        public TagIdentifier(short index, short salt)
         {
             parent = default(IStructure);
             this.Index = index;
-            this.salt = salt;
+            this.salt_ = salt;
+        }
+        public TagIdentifier(TagIdentifier copy)
+        {
+            this.Index = copy.Index;
+            this.salt_ = copy.salt_;
+            this.parent = copy.parent;
         }
 
-        public static implicit operator int(tag_id tagIndex)
+        public static implicit operator int(TagIdentifier tagIndex)
         {
-            return (tagIndex.salt << 16) | (ushort)tagIndex.Index;
+            return (tagIndex.salt_ << 16) | (ushort)tagIndex.Index;
         }
 
-        public static implicit operator tag_id(int i)
+        public static implicit operator TagIdentifier(int i)
         {
-            return new tag_id((short)(i & 0x0000FFFF), (short)((i & 0xFFFF0000) >> 16));
+            return new TagIdentifier((short)(i & 0x0000FFFF), (short)((i & 0xFFFF0000) >> 16));
         }
 
         public override string ToString()
         {
-        return String.Format("{0}:{1}", Index, Convert.ToString(salt, 16));
+        return String.Format("{0}:{1}", Index, Convert.ToString(salt_, 16));
         }
 
         public const int null_identifier = -1;
@@ -203,9 +211,7 @@ namespace Moonfish.Core
 
         void IField.SetFieldData(byte[] field_data, IStructure caller)
         {
-            tag_id copy = BitConverter.ToInt32(field_data, 0);
-            this.Index = copy.Index;
-            this.salt = copy.salt;
+            this = new TagIdentifier(BitConverter.ToInt32(field_data, 0));
         }
 
         int IField.SizeOfField
@@ -222,7 +228,7 @@ namespace Moonfish.Core
     public struct resource_identifier
     {
         public int Identifier;
-        public tag_id ParentTagIdentifier;
+        public TagIdentifier ParentTagIdentifier;
         public int Offset;
         public Type ResourceType;
 
@@ -243,17 +249,19 @@ namespace Moonfish.Core
         }
     }
 
-    public struct StringID : IField, IReference<StringID>
+    public class StringID : IField, IEquatable<StringID>
     {
         IStructure parent;
-        public readonly short Index;
-        public readonly short Length;
-        byte nullbyte;
         const int size = 4;
+        short index;
+        sbyte length;
+        public short Index { get { return index; } }
+        public sbyte Length { get { return length; } }
+        byte nullbyte;
 
         public static explicit operator int(StringID strRef)
         {
-            return (strRef.Length << 24)| strRef.nullbyte | (ushort)strRef.Index;
+            return (strRef.length << 24)| strRef.nullbyte | (ushort)strRef.index;
         }
 
         public static explicit operator StringID(int i)
@@ -269,9 +277,19 @@ namespace Moonfish.Core
 
         void IField.SetFieldData(byte[] field_data, IStructure caller)
         {
-            this = (StringID)BitConverter.ToInt32(field_data, 0);
-            if (caller != null)
+            var copy = (StringID)BitConverter.ToInt32(field_data, 0);
+            copy.parent = this.parent;//copy pointer to parent//
+            this.Copy(copy);
+            if (parent != null)
                 parent.SetField(this);
+        }
+
+        private void Copy(StringID copy)
+        {
+            parent = copy.parent;
+            nullbyte = copy.nullbyte; if (nullbyte != byte.MinValue) throw new Exception("Bad String ID. \nBad. bad. bad! >:D");
+            index = copy.index;
+            length = copy.length;
         }
 
         int IField.SizeOfField
@@ -284,45 +302,40 @@ namespace Moonfish.Core
             parent = calling_structure;
         }
 
-        StringID IReference<StringID>.GetToken()
-        {
-            return this;
-        }
-
-        void IReference<StringID>.SetToken(StringID token)
-        {
-            this = new StringID(token);
-            parent.SetField(this);
-        }
-
-        bool IReference<StringID>.IsNullReference
-        {
-            get { return false; }
-        }
-
         public StringID(StringID copy)
         {
-            parent = copy.parent;
-            nullbyte = copy.nullbyte; if (nullbyte != byte.MinValue) throw new Exception("Bad String ID. \nBad. bad. bad! >:D");
-            Index = copy.Index;
-            Length = copy.Length;
+            this.parent = copy.parent;
+            this.nullbyte = copy.nullbyte; if (nullbyte != byte.MinValue) throw new Exception("Bad String ID. \nBad. bad. bad! >:D");
+            this.index = copy.index;
+            this.length = copy.length;
         }
         public StringID(short index, sbyte length, byte debug = byte.MinValue)
         {
-            parent = default(IStructure);
-            nullbyte = debug; if (nullbyte != byte.MinValue) throw new Exception("Bad String ID. \nBad. bad. bad! >:D");
-            Index = index;
-            Length = length;
+            this.parent = default(IStructure);
+            this.nullbyte = debug; if (nullbyte != byte.MinValue) throw new Exception("Bad String ID. \nBad. bad. bad! >:D");
+            this.index = index;
+            this.length = length;
         }
+        public StringID() { }
 
         public override string ToString()
         {
-            return string.Format("{0} : {1} bytes", Index, Length);
+            return string.Format("{0} : {1} bytes", index, length);
         }
 
         public static StringID Zero { get { return new StringID(0, 0); } }
+
+        bool IEquatable<StringID>.Equals(StringID other)
+        {
+            return (index == other.index && length == other.length && nullbyte == other.nullbyte);
+        }
     }
 
+    public struct FixedPointer
+    {
+        public int Count;
+        public int Address;
+    }
 
     public class tag_type_array : IEnumerable, IEnumerable<string>
     {

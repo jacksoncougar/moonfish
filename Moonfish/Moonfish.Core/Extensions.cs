@@ -5,6 +5,7 @@ using System.Text;
 using System.IO;
 using Moonfish.Core.Model;
 using OpenTK;
+using Moonfish.Core.Definitions;
 
 namespace Moonfish.Core
 {
@@ -17,9 +18,9 @@ namespace Moonfish.Core
             else return Encoding.UTF8.GetString(binreader.ReadBytes(length));
         }
 
-        public static tag_class ReadTagType(this BinaryReader binreader)
+        public static TagClass ReadTagType(this BinaryReader binreader)
         {
-            return new tag_class(binreader.ReadBytes(4));
+            return new TagClass(binreader.ReadBytes(4));
         }
 
         public static void WriteFourCC(this BinaryWriter writer, string code)
@@ -47,6 +48,17 @@ namespace Moonfish.Core
             return new Vector3(binary_reader.ReadSingle(), binary_reader.ReadSingle(), binary_reader.ReadSingle());
         }
 
+        public static void Write(this BinaryWriter binary_writer, IDefinition definition)
+        {
+            binary_writer.Write(definition.ToArray());
+        }
+        public static T ReadDefinition<T>(this BinaryReader binary_reader) where T : IDefinition, new()
+        {
+            var item = new T();
+            item.FromArray(binary_reader.ReadBytes(item.Size));
+            return item;
+        }
+
         public static void Write(this BinaryWriter binary_writer, Quaternion quaternion)
         {
             binary_writer.Write(quaternion.X);
@@ -59,19 +71,19 @@ namespace Moonfish.Core
             return new Quaternion(binary_reader.ReadSingle(), binary_reader.ReadSingle(), binary_reader.ReadSingle(), binary_reader.ReadSingle());
         }
 
-        public static void Write(this BinaryWriter binary_writer, tag_class tclass)
+        public static void Write(this BinaryWriter binary_writer, TagClass tclass)
         {
             binary_writer.Write((int)tclass);
         }
-        public static tag_class ReadTagClass(this BinaryReader binary_reader)
+        public static TagClass ReadTagClass(this BinaryReader binary_reader)
 
         {
-            return (tag_class)binary_reader.ReadInt32();
+            return (TagClass)binary_reader.ReadInt32();
         }
 
-        public static tag_id ReadTagID(this BinaryReader binary_reader)
+        public static TagIdentifier ReadTagID(this BinaryReader binary_reader)
         {
-            return (tag_id)binary_reader.ReadInt32();
+            return (TagIdentifier)binary_reader.ReadInt32();
         }
 
         public static void Write(this BinaryWriter binary_writer, Range range)

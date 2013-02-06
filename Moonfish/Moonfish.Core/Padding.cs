@@ -23,5 +23,15 @@ namespace Moonfish.Core
         {
             return (-address) & (alignment - 1);
         }
+
+        internal static byte[] GetBytes(int length, byte value)
+        {
+            var buffer = new byte[length];
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                buffer[i] = value;
+            }
+            return buffer;
+        }
     }
 }

@@ -55,17 +55,17 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Definitions\antenna.cs" />
-    <Compile Include="Definitions\bitmap_collection.cs" />
-    <Compile Include="Definitions\model.cs" />
+    <Compile Include="GlobalStrings.cs" />
+    <Compile Include="Structures\antenna.cs" />
+    <Compile Include="Structures\bitmap_collection.cs" />
+    <Compile Include="Structures\model.cs" />
     <Compile Include="Definitions\model_definitions.cs" />
-    <Compile Include="Definitions\prt3.cs" />
-    <Compile Include="Definitions\shader.cs" />
-    <Compile Include="Experimental.cs" />
+    <Compile Include="Structures\prt3.cs" />
+    <Compile Include="Structures\shader.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="Model\QuickModelView.cs" />
     <Compile Include="Globals.cs" />
-    <Compile Include="ITagBlockInterface.cs" />
+    <Compile Include="Structures\ITagBlockInterface.cs" />
     <Compile Include="MapStream.cs" />
     <Compile Include="Memory.cs" />
     <Compile Include="Model\TriangleStrip.cs" />
@@ -74,20 +74,18 @@
     <Compile Include="Model\WavefrontObject.cs" />
     <Compile Include="Padding.cs" />
     <Compile Include="Model\Adjacency .cs" />
-    <Compile Include="Model\Model.cs" />
+    <Compile Include="Model\Mesh.cs" />
     <Compile Include="Model\RadixSorter.cs" />
     <Compile Include="Model\Range.cs" />
-    <Compile Include="TagBlockDefinition.cs" />
+    <Compile Include="Structures\TagBlockDefinition.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TagBlockWrapper.cs" />
     <Compile Include="TagCache.cs" />
     <Compile Include="ValueTypes.cs" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
   <ItemGroup />
   <ItemGroup>
+    <Content Include="Structures\about.txt" />
     <Content Include="etc\default.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

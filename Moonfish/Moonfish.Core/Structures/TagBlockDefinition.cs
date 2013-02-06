@@ -8,7 +8,7 @@ using System.Linq;
 namespace Moonfish.Core
 {
 
-    public class TagBlockList<TTagBlock> : FixedArray<TTagBlock>, IPointable, IField where TTagBlock : TagBlock, IStructure, IPointable, new()
+    public class TagBlockList<TTagBlock> : FixedArray<TTagBlock>, IPointable, IField, IArrayField where TTagBlock : TagBlock, IStructure, IPointable, new()
     {
         //void ISerializable.Deserialize(Stream source_stream)
         //{
@@ -153,9 +153,22 @@ namespace Moonfish.Core
             this.parent.SetField(this);                                                     // 6. set field to allow bubble-up of values
             
         }
+
+        int IArrayField.Address
+        {
+            get
+            {
+                return first_element_address_;
+            }
+            set
+            {
+                throw new NotImplementedException();
+            }
+        }
     }
 
-    public abstract class TagBlock : IStructure, IPointable, IEnumerable<TagBlockField>, IEnumerable<StringID>
+    public abstract class TagBlock : IStructure, IPointable, 
+        IEnumerable<TagBlockField>, IEnumerable<StringID>, IEnumerable<TagIdentifier>, IEnumerable<IArrayField>
     {
         const int DefaultAlignment = 4;
         protected readonly int size;
@@ -164,7 +177,7 @@ namespace Moonfish.Core
         protected MemoryStream memory_;
         protected readonly List<TagBlockField> fixed_fields;
 
-        public void SetDefinitionData(ITagDefinition definition)
+        public void SetDefinitionData(IDefinition definition)
         {
             var buffer = definition.ToArray();
             this.memory_.Position = 0;
@@ -178,7 +191,7 @@ namespace Moonfish.Core
                 fixed_fields[i].Object.SetFieldData(field_data);
             }
         }
-        public T GetDefinition<T>() where T : ITagDefinition, new()
+        public T GetDefinition<T>() where T : IDefinition, new()
         {
             var definition = new T();
             definition.FromArray(this.memory_.ToArray());
@@ -321,6 +334,7 @@ namespace Moonfish.Core
             }
         }
 
+
         /// <summary>
         /// 
         /// </summary>
@@ -338,7 +352,7 @@ namespace Moonfish.Core
                     if (tagblock_interface__ != null) foreach (var item in tagblock_interface__)
                         {
                             // if this item supports string_id enumeration, enumerate each string_id
-                            var stringid_interface__ = field.Object as IEnumerable<StringID>;
+                            var stringid_interface__ = item as IEnumerable<StringID>;
                             if (stringid_interface__ != null) foreach (var string_id in stringid_interface__)
                                 {
                                     // yield each string
@@ -348,7 +362,53 @@ namespace Moonfish.Core
                 }
             }
         }
+        IEnumerator<TagIdentifier> IEnumerable<TagIdentifier>.GetEnumerator()
+        {
+            foreach (TagBlockField field in this.fixed_fields)
+            {
+                if (field.Object is TagIdentifier)
+                    yield return (TagIdentifier)field.Object;
+                else
+                {
+                    // if this is a collection of tagblocks, enumerate each item
+                    var tagblock_interface__ = field.Object as IEnumerable<TagBlock>;
+                    if (tagblock_interface__ != null) foreach (var item in tagblock_interface__)
+                        {
+                            // if this item supports string_id enumeration, enumerate each string_id
+                            var tagid_interface__ = item as IEnumerable<TagIdentifier>;
+                            if (tagid_interface__ != null) foreach (var tag_id in tagid_interface__)
+                                {
+                                    // yield each tag
+                                    yield return tag_id;
+                                }
+                        }
+                }
+            }
+        }
 
+        IEnumerator<IArrayField> IEnumerable<IArrayField>.GetEnumerator()
+        {
+            foreach (TagBlockField field in this.fixed_fields)
+            {
+                if (field.Object is IArrayField)
+                    yield return (IArrayField)field.Object;
+                else
+                {
+                    // if this is a collection of tagblocks, enumerate each item
+                    var tagblock_interface__ = field.Object as IEnumerable<TagBlock>;
+                    if (tagblock_interface__ != null) foreach (var item in tagblock_interface__)
+                        {
+                            // if this item supports string_id enumeration, enumerate each string_id
+                            var tagid_interface__ = item as IEnumerable<IArrayField>;
+                            if (tagid_interface__ != null) foreach (var tag_id in tagid_interface__)
+                                {
+                                    // yield each tag
+                                    yield return tag_id;
+                                }
+                        }
+                }
+            }
+        }
     }
 
     public abstract class FixedArray<T> : List<T>, IField, IEnumerable<T>
@@ -454,10 +514,10 @@ namespace Moonfish.Core
         AllowMultiple = false, Inherited = false)]
     public class TagClassAttribute : System.Attribute
     {
-        public tag_class Tag_Class { get; set; }
+        public TagClass Tag_Class { get; set; }
         public TagClassAttribute(string tag_class)
         {
-            Tag_Class = (tag_class)tag_class;
+            Tag_Class = (TagClass)tag_class;
         }
     }
 

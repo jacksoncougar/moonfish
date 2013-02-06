@@ -15,12 +15,12 @@ namespace Moonfish.Core
     {
         const int header_size = 64;
 
-        public tag_class tag_type;
-        public tag_id id;
+        public TagClass tag_type;
+        public TagIdentifier id;
         public Stream meta_stream;
         public int[] raw_data_address;
         public Stream raw_data_stream;
-        public tag_id[] tag_references;
+        public TagIdentifier[] tag_references;
 
         public void Save(Stream output_stream)
         {
@@ -67,7 +67,7 @@ namespace Moonfish.Core
             const int Size = 64;
 
             public byte[] fourcc;
-            public tag_class type;
+            public TagClass type;
             public int id;
             public int meta_address;
             public int meta_length;

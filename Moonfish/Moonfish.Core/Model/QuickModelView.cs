@@ -219,7 +219,7 @@ namespace StarterKit
                 {
                     GL.Color4(new Color4((byte)(0x33 + (group.shader_index * 36)), (byte)(0x33 + (group.shader_index * 36)), 
                         (byte)(0x33 + (group.shader_index * 36)), (byte)(0x33 - (group.shader_index * 36))));
-                    GL.DrawElements(BeginMode.TriangleStrip, group.strip_end, DrawElementsType.UnsignedShort, group.strip_start * 2);
+                    GL.DrawElements(BeginMode.TriangleStrip, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);
                 }
                 GL.Color4(new Color4(0x11, 0x11, 0x11, 0xFF));
                 GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);

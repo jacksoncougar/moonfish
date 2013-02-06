@@ -6,7 +6,7 @@ using System.Text;
 
 namespace Moonfish.Core.Model.Wavefront
 {
-    public static class WavefrontExtensions
+    internal static class WavefrontExtensions
     {
         public static bool TryParseVector3(out Vector3 vector3, string line)
         {

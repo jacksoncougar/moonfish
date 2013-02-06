@@ -5,7 +5,9 @@ using System.IO;
 
 namespace Moonfish.Core
 {
-        public interface IReferenceList<T, TToken> where TToken : struct
+
+
+    public interface IReferenceList<T, TToken> where TToken : struct
     {
         /// <summary>
         /// return the object we are token-referencing to

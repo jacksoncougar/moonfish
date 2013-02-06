@@ -4,6 +4,11 @@ using System.IO;
 
 namespace Moonfish.Core
 {
+    public interface IArrayField
+    {
+        int Address { get; set; }
+    }
+
     public interface IField
     {
         byte[] GetFieldData();
@@ -105,33 +110,32 @@ namespace Moonfish.Core
         }
 
         /// <summary>
-        /// This is a really poorly implemented way to parse a tagblock, and write it to a stream...
+        /// Parses the TagBlock, which updates the TagBlock internal 'pointers', 
+        /// then copies it to the stream and the current stream location. 
+        /// Note: the tag-block will be parsed so that the internal pointers are stream-offset values
         /// </summary>
-        /// <param name="source"></param>
-        /// <param name="stream"></param>
-        /// <returns></returns>
+        /// <param name="source">TagBlock object which to perform parsing on and copying from</param>
+        /// <param name="stream">Destination stream for copied data</param>
+        /// <returns>true</returns>
         public static bool Map(TagBlock source, Stream stream)
         {
-            //calculate pointers for all the tagblocks, then set thier pointers
-            //then copy all the memory to a single memory.
-            var start_offset = stream.Position;
-            stream.Write(source.GetMemory().ToArray(), 0, (source as IPointable).SizeOf);//reserve
-            (source as IPointable).CopyTo(stream);
-            stream.Position = start_offset;
-            stream.Write(source.GetMemory().ToArray(), 0, (source as IPointable).SizeOf);//update
-            //return true;
-            //using (BinaryWriter bin = new BinaryWriter(File.Create(@"D:\debug.meta")))
-            //{
-            //    bin.Write(memory.ToArray());
-            //}
+            /* Intent: Using the TagBlock which is passed in, calculate all Pointers—count and address—
+             * values for the new position in the stream. Copy all the bytes from the TagBlocks
+             * recursively into the stream. */
+
+            var start_offset = stream.Position;                                             /* Store the current position in the stream that was passed in.
+                                                                                             * This will be the address we start copying TagBlock data at */   
+            var block_size = (source as IPointable).SizeOf;                                 // Size of the source TagBlock internal data
+            stream.Write(Padding.GetBytes(block_size, 0xCD), 0, block_size);                /* Write padding bytes for debug purposes. This also moves the 
+                                                                                             * streams internal position forward so that we are 'reserving' 
+                                                                                             * this space*/
+            (source as IPointable).CopyTo(stream);                                          /* This method is a recursive two-pass into the TagBlock which 
+                                                                                             * will update internal properties before copying to the stream */
+            stream.Position = start_offset;                                                 // Move the stream back to our stored offset
+            stream.Write(source.GetMemory().ToArray(), 0, block_size);                      // Write the TagBlock internal memory to the stream
             return true;
         }
 
-        public struct FixedPointer
-        {
-            int address;
-            int count;
-        }
         public struct mem_ref
         {
             public IPointable client;

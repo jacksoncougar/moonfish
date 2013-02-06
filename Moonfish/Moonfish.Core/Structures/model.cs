@@ -1,13 +1,11 @@
-﻿using Moonfish.Core.Model;
-using System.Collections.Generic;
+﻿using Moonfish.Core.Definitions;
 using System.IO;
-using System.Linq;
 namespace Moonfish.Core
 {
     [TagClass("mode")]
     public class model : TagBlock
     {
-        public TagBlockList<BoundingBox> Compression { get { return this.fixed_fields[1].Object as TagBlockList<BoundingBox>; } }
+        public TagBlockList<CompressionRanges> Compression { get { return this.fixed_fields[1].Object as TagBlockList<CompressionRanges>; } }
         public TagBlockList<Region> Regions { get { return this.fixed_fields[2].Object as TagBlockList<Region>; } }
         public TagBlockList<Section> Sections { get { return this.fixed_fields[3].Object as TagBlockList<Section>; } }
         public TagBlockList<Group> Groups { get { return this.fixed_fields[5].Object as TagBlockList<Group>; } }
@@ -15,13 +13,13 @@ namespace Moonfish.Core
         public TagBlockList<MarkerGroup> MarkerGroups { get { return this.fixed_fields[7].Object as TagBlockList<MarkerGroup>; } }
         public TagBlockList<Shader> Shaders { get { return this.fixed_fields[8].Object as TagBlockList<Shader>; } }
 
-        public BoundingBox GetBoundingBox() { return (this.fixed_fields[1].Object as TagBlockList<BoundingBox>)[0]; }
+        public CompressionRanges GetBoundingBox() { return (this.fixed_fields[1].Object as TagBlockList<CompressionRanges>)[0]; }
 
         public model()
             : base(132, new TagBlockField[]{
             new TagBlockField(new StringID()),
             new TagBlockField(null, 16),
-            new TagBlockField(new TagBlockList<BoundingBox>()),
+            new TagBlockField(new TagBlockList<CompressionRanges>()),
             new TagBlockField(new TagBlockList<Region>()),
             new TagBlockField(new TagBlockList<Section>()),
             new TagBlockField(new TagBlockList<tagblock0_3>()),
@@ -36,11 +34,11 @@ namespace Moonfish.Core
             new TagBlockField(new TagBlockList<tagblock0_9>()),
             }) { }
 
-        public class BoundingBox : TagBlock
+        public class CompressionRanges : TagBlock
         {
-            public BoundingBox() : base(56) { }
+            public CompressionRanges() : base(56) { }
 
-            public BoundingBox(Definitions.DCompressionRanges compression_ranges)
+            public CompressionRanges(Definitions.DCompressionRanges compression_ranges)
                 : this()
             {
                 // TODO: Complete member initialization
@@ -71,29 +69,14 @@ namespace Moonfish.Core
         }
         public class Section : TagBlock
         {
-            public ModelPointer GetRawPointer()
+            public FixedPointer GetRawPointer()
             {
                 BinaryReader binary_reader = new BinaryReader(this.GetMemory());
                 binary_reader.BaseStream.Position = 56;
-                return new ModelPointer() { Address = binary_reader.ReadInt32(), Length = binary_reader.ReadInt32() };
+                return new FixedPointer() { Count = binary_reader.ReadInt32(), Address = binary_reader.ReadInt32() };
             }
             public TagBlockList<Resource> Resources { get { return base.fixed_fields[1].Object as TagBlockList<Resource>; } }
-            public Model.Mesh.DResource[] GetSectionResources()
-            {
-                var resources = this.Resources.ToArray();
-                Model.Mesh.DResource[] section_resources = new Model.Mesh.DResource[resources.Length];
-                for (int i = 0; i < section_resources.Length; ++i)
-                {
-                    section_resources[i] = resources[i].GetResource();
-                }
-                return section_resources;
-            }
-            public struct ModelPointer
-            {
-                public int Address;
-                public int Length;
-            }
-
+            
             public Section()
                 : base(92, new TagBlockField[]{
                 new TagBlockField(null, 48),
@@ -101,7 +84,7 @@ namespace Moonfish.Core
             /*raw here*/new TagBlockField(null, 8),     
             new TagBlockField(null, 8),         
             new TagBlockField(new TagBlockList<Resource>()),
-            new TagBlockField(new tag_id()),
+            new TagBlockField(new TagIdentifier()),
             }) { }
 
             public Section(Definitions.DSection dSection)
@@ -116,13 +99,10 @@ namespace Moonfish.Core
             }
             public class Resource : TagBlock
             {
-                public Model.Mesh.DResource GetResource()
-                {
-                    return new Model.Mesh.DResource(this.GetMemory().ToArray());
-                }
                 public Resource() : base(16) { }
 
-                public Resource(Mesh.DResource dResource):this()
+                public Resource(DResource dResource)
+                    : this()
                 {
                     this.SetDefinitionData(dResource);
                 }
@@ -208,7 +188,7 @@ namespace Moonfish.Core
                     /*unk raw here*/new TagBlockField(null, 16),
                     new TagBlockField(null, 8),
                     new TagBlockField(new TagBlockList<tagblock1_2>()),
-                    new TagBlockField(new tag_id())
+                    new TagBlockField(new TagIdentifier())
                     ) { }
             public class tagblock1_0 : TagBlock
             {

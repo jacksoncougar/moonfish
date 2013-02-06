@@ -34,7 +34,7 @@ namespace Moonfish.Core
         {
             public tagblock1()
                 : base(124, new TagBlockField[] { 
-                new TagBlockField(new tag_id()),
+                new TagBlockField(new TagIdentifier()),
                 new TagBlockField(new TagBlockList<tagblock1_0>()),
                 new TagBlockField(new TagBlockList<tagblock1_1>()),
                 new TagBlockField(new TagBlockList<tagblock1_2>()),
@@ -54,7 +54,7 @@ namespace Moonfish.Core
             {
                 public tagblock1_0()
                     : base(12, new TagBlockField[] { 
-                new TagBlockField(new tag_id()),
+                new TagBlockField(new TagIdentifier()),
                     }) { }
             }
             public class tagblock1_1 : TagBlock

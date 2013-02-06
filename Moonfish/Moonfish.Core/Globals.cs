@@ -14,40 +14,41 @@ namespace Moonfish.Core
     {
         public const int nullptr = 0;
 
-        private static tag_type_array tag_types_ = new tag_type_array();
-
         /// <summary>
         /// A list of each tag_type used in halo 2's retail maps
         /// </summary>
         public static tag_type_array Classes
         {
-            get
-            {
-                return tag_types_;
-            }
+            get { return tag_types_; }
         }
+        /// <summary>
+        /// A list of all standard strings in Halo 2
+        /// </summary>
+        public static GlobalStrings Strings { get { return strings_; } }
 
-        private static Dictionary<tag_class, Type> halo_2_classes;
+        private static tag_type_array tag_types_ = new tag_type_array();
+        private static GlobalStrings strings_ = new GlobalStrings();
+        private static Dictionary<TagClass, Type> halo_2_classes;
 
         static Halo2()
         {
-            halo_2_classes = new Dictionary<tag_class, Type>(3);
+            halo_2_classes = new Dictionary<TagClass, Type>(3);
             foreach (var type in Assembly.GetExecutingAssembly().GetTypes())
             {
                 if (!type.IsNested && type.BaseType == typeof(TagBlock))
                 {
-                    tag_class class_of_tag = (type.GetCustomAttributes(typeof(TagClassAttribute), false)[0] as TagClassAttribute).Tag_Class;
+                    TagClass class_of_tag = (type.GetCustomAttributes(typeof(TagClassAttribute), false)[0] as TagClassAttribute).Tag_Class;
                     halo_2_classes.Add(class_of_tag, type);
                 }
             }
         }
 
-        internal static Type GetTypeOf(tag_class class_name)
+        internal static Type GetTypeOf(TagClass class_name)
         {
             return halo_2_classes[class_name];
         }
 
-        public static TagBlock CreateInstance(tag_class class_name)
+        public static TagBlock CreateInstance(TagClass class_name)
         {                
             Type tagblock_type = halo_2_classes[class_name];
             return Activator.CreateInstance(tagblock_type) as TagBlock;

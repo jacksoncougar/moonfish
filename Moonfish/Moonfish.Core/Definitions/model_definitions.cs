@@ -8,13 +8,20 @@ using System.Text;
 
 namespace Moonfish.Core.Definitions
 {
-    public interface ITagDefinition
+    public interface IDefinition
     {
         byte[] ToArray();
         void FromArray(byte[] buffer);
+        int Size { get; }
     }
 
-    public class DCompressionRanges : ITagDefinition
+    public class CompressionInformation : DCompressionRanges
+    {
+        public bool CompressTexcoords = true;
+        public bool CompressVertices = true;
+    }
+
+    public class DCompressionRanges : IDefinition
     {
         public Range X;
         public Range Y;
@@ -22,7 +29,7 @@ namespace Moonfish.Core.Definitions
         public Range U;
         public Range V;
 
-        byte[] ITagDefinition.ToArray()
+        byte[] IDefinition.ToArray()
         {
             MemoryStream buffer = new MemoryStream(40);
             BinaryWriter bin = new BinaryWriter(buffer);
@@ -34,7 +41,7 @@ namespace Moonfish.Core.Definitions
             return buffer.ToArray();
         }
 
-        void ITagDefinition.FromArray(byte[] buffer)
+        void IDefinition.FromArray(byte[] buffer)
         {
             BinaryReader bin = new BinaryReader(new MemoryStream(buffer));
             X = bin.ReadRange();
@@ -52,15 +59,21 @@ namespace Moonfish.Core.Definitions
             U = Range.Expand(U, p);
             V = Range.Expand(V, p);
         }
+
+
+        int IDefinition.Size
+        {
+            get { return 40; }
+        }
     }
 
-    public class DRegion : ITagDefinition
+    public class DRegion : IDefinition
     {
         public StringID Name = StringID.Zero;
         public short NodeMapOffset = -1;
         public short NodeMapSize = 0;
 
-        byte[] ITagDefinition.ToArray()
+        byte[] IDefinition.ToArray()
         {
             MemoryStream buffer = new MemoryStream(16);
             BinaryWriter bin = new BinaryWriter(buffer);
@@ -70,16 +83,22 @@ namespace Moonfish.Core.Definitions
             return buffer.ToArray();
         }
 
-        void ITagDefinition.FromArray(byte[] buffer)
+        void IDefinition.FromArray(byte[] buffer)
         {
             BinaryReader bin = new BinaryReader(new MemoryStream(buffer));
             Name = bin.ReadStringID();
             NodeMapOffset = bin.ReadInt16();
             NodeMapSize = bin.ReadInt16();
         }
+
+
+        int IDefinition.Size
+        {
+            get { return 8; }
+        }
     }
 
-    public class DSection : ITagDefinition
+    public class DSection : IDefinition
     {
         public enum VertexDefinition
         {
@@ -105,7 +124,7 @@ namespace Moonfish.Core.Definitions
         public uint HeaderSize = 112;
         public uint RawDataSize;
 
-        byte[] ITagDefinition.ToArray()
+        byte[] IDefinition.ToArray()
         {
             MemoryStream buffer = new MemoryStream();
             BinaryWriter bin = new BinaryWriter(buffer);
@@ -122,10 +141,10 @@ namespace Moonfish.Core.Definitions
             return buffer.ToArray();
         }
 
-        void ITagDefinition.FromArray(byte[] buffer)
+        void IDefinition.FromArray(byte[] buffer)
         {
             BinaryReader bin = new BinaryReader(new MemoryStream(buffer));
-            VertexType = (VertexDefinition)bin.ReadInt16();
+            VertexType = (VertexDefinition)bin.ReadInt32();
             VertexCount = bin.ReadUInt16();
             TriangleCount = bin.ReadUInt16();
             bin.BaseStream.Seek(16, SeekOrigin.Current);
@@ -136,9 +155,80 @@ namespace Moonfish.Core.Definitions
             HeaderSize = bin.ReadUInt32();
             RawDataSize = bin.ReadUInt32();
         }
+
+
+        int IDefinition.Size
+        {
+            get { return 70; }
+        }
     }
 
-    public class DGroup : ITagDefinition
+    public class DResource : IDefinition
+    {
+        public byte first_;
+        public byte second_;
+        public short header_address;
+        public short header_address_again;
+        public short data_size__or__first_index;
+        public int resource_length;
+        public int resource_offset;
+
+        public DResource(byte[] buffer)
+        {
+            first_ = buffer[0];
+            second_ = buffer[1];
+            header_address = BitConverter.ToInt16(buffer, 2);
+            header_address_again = BitConverter.ToInt16(buffer, 4);
+            data_size__or__first_index = BitConverter.ToInt16(buffer, 6);
+            resource_length = BitConverter.ToInt32(buffer, 8);
+            resource_offset = BitConverter.ToInt32(buffer, 12);
+        }
+
+        public DResource(short address, short element_size, int total_resource_size, int resource_offset, bool first = false)
+        {
+            this.header_address = address;
+            this.header_address_again = address;
+            this.data_size__or__first_index = element_size;
+            if (first) first_ = 2;
+            else first_ = 0x00;
+            second_ = 2;
+            this.resource_length = total_resource_size;
+            this.resource_offset = resource_offset;
+        }
+
+        byte[] IDefinition.ToArray()
+        {
+            MemoryStream buffer = new MemoryStream();
+            BinaryWriter bin = new BinaryWriter(buffer);
+            bin.Write(first_);
+            bin.Write(second_);
+            bin.Write(header_address);
+            bin.Write(header_address_again);
+            bin.Write(data_size__or__first_index);
+            bin.Write(resource_length);
+            bin.Write(resource_offset);
+            return buffer.ToArray();
+        }
+
+        void IDefinition.FromArray(byte[] buffer)
+        {
+            BinaryReader bin = new BinaryReader(new MemoryStream(buffer));
+            first_ = bin.ReadByte();
+            second_ = bin.ReadByte();
+            header_address = bin.ReadInt16();
+            header_address_again = bin.ReadInt16();
+            data_size__or__first_index = bin.ReadInt16();
+            resource_length = bin.ReadInt32();
+            resource_offset = bin.ReadInt32();
+        }
+
+        int IDefinition.Size
+        {
+            get { return 16; }
+        }
+    }
+
+    public class DGroup : IDefinition
     {
         [Flags]
         public enum DetailLevel
@@ -153,18 +243,24 @@ namespace Moonfish.Core.Definitions
         }
         public DetailLevel Levels = DetailLevel.All;
 
-        byte[] ITagDefinition.ToArray()
+        byte[] IDefinition.ToArray()
         {
             return BitConverter.GetBytes((int)Levels);
         }
 
-        void ITagDefinition.FromArray(byte[] buffer)
+        void IDefinition.FromArray(byte[] buffer)
         {
             Levels = (DetailLevel)BitConverter.ToUInt32(buffer, 0);
         }
+
+
+        int IDefinition.Size
+        {
+            get { return 4; }
+        }
     }
 
-    public class DNode : ITagDefinition
+    public class DNode : IDefinition
     {
         public StringID Name = StringID.Zero;
         public short Parent_NodeIndex = -1;
@@ -177,7 +273,7 @@ namespace Moonfish.Core.Definitions
         public Vector3 Forward = Vector3.UnitY;
         public Vector3 Up = Vector3.UnitZ;
 
-        byte[] ITagDefinition.ToArray()
+        byte[] IDefinition.ToArray()
         {
             MemoryStream buffer = new MemoryStream();
             BinaryWriter bin = new BinaryWriter(buffer);
@@ -195,7 +291,7 @@ namespace Moonfish.Core.Definitions
             return buffer.ToArray();
         }
 
-        void ITagDefinition.FromArray(byte[] buffer)
+        void IDefinition.FromArray(byte[] buffer)
         {
             BinaryReader bin = new BinaryReader(new MemoryStream(buffer));
             Name = bin.ReadStringID();
@@ -210,28 +306,40 @@ namespace Moonfish.Core.Definitions
             Forward = bin.ReadVector3();
             Up = bin.ReadVector3();
         }
+
+
+        int IDefinition.Size
+        {
+            get { return 96; }
+        }
     }
 
-    public class DShader : ITagDefinition
+    public class DShader : IDefinition
     {
-        tag_id Shader = tag_id.null_identifier;
+        TagIdentifier Shader = TagIdentifier.null_identifier;
 
-        byte[] ITagDefinition.ToArray()
+        byte[] IDefinition.ToArray()
         {
             MemoryStream buffer = new MemoryStream();
             BinaryWriter bin = new BinaryWriter(buffer);
-            bin.Write((tag_class)"shad");
-            bin.Write(tag_id.null_identifier);
-            bin.Write((tag_class)"shad");
+            bin.Write((TagClass)"shad");
+            bin.Write(TagIdentifier.null_identifier);
+            bin.Write((TagClass)"shad");
             bin.Write(Shader);
             return buffer.ToArray();
         }
 
-        void ITagDefinition.FromArray(byte[] buffer)
+        void IDefinition.FromArray(byte[] buffer)
         {
             BinaryReader bin = new BinaryReader(new MemoryStream(buffer));
             bin.BaseStream.Seek(12, SeekOrigin.Begin);
             Shader = bin.ReadTagID();
+        }
+
+
+        int IDefinition.Size
+        {
+            get { return 16; }
         }
     }
 }

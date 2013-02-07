@@ -1,15 +1,14 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 
 namespace Moonfish.Core
 {
-    public interface IArrayField
+    public interface IFieldArray
     {
         int Address { get; set; }
-        IEnumerable<IAField> Fields { get; }
-        //count
-        //size  
+        IList<IAField> Fields { get; }
     }
 
     public interface IAField
@@ -32,6 +31,9 @@ namespace Moonfish.Core
         IField GetField(int field_index);
     }
 
+    /// <summary>
+    /// Get rid of this lol
+    /// </summary>
     public interface IPointable
     {
         void Parse(Memory mem);

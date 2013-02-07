@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Drawing;
 using System.Windows.Forms;
+using System.Linq;
 using System;
 using Moonfish.Core.Definitions;
 
@@ -15,10 +16,17 @@ namespace Moonfish.Debug
         {
             Console.WriteLine("Moonfish Core:");
             Log.OnLog = new Log.LogMessageHandler(Console.WriteLine);
+
             var map = new MapStream(@"C:\Users\stem\Documents\headlong.map");
-            var tag = map.GetTag(map.FindFirst((TagClass)"mode", "pallet"));
-            TagWrapper fiddycent = new TagWrapper(tag, map);
+            var tag = (model)map["mode", "pallet"].Export();
+
+            Mesh mesh = new Mesh();
+            mesh.Load(tag.Sections[0].Raw, tag.Sections[0].Resources, tag.Compression[0]);
+
+            TagWrapper fiddycent = new TagWrapper(tag, map, map["mode", "pallet"].Meta);
             return;
+
+
             var wavefront_object = @"D:\halo_2\quadshere-x.obj";
             var folder = @"D:\halo_2\temp\";
             var tagname = string.Format(@"_remnant\custom\{0}\objects\{1}\{1}", DateTime.Now.Ticks, "debug");

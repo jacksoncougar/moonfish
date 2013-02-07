@@ -1,5 +1,6 @@
 ﻿using Moonfish.Core.Definitions;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,7 +9,8 @@ using System.Linq;
 namespace Moonfish.Core
 {
 
-    public class TagBlockList<TTagBlock> : FixedArray<TTagBlock>, IPointable, IField, IArrayField where TTagBlock : TagBlock, IStructure, IPointable, new()
+    public class TagBlockList<TTagBlock> : FixedArray<TTagBlock>, IField, IFieldArray, IFixedArray
+        where TTagBlock : TagBlock, IStructure, IAField, new()
     {
         //void ISerializable.Deserialize(Stream source_stream)
         //{
@@ -81,80 +83,80 @@ namespace Moonfish.Core
             for (int i = 0; i < count_; ++i)
             {
                 TTagBlock child = new TTagBlock();
-                child.this_pointer = first_element_address_ + i * child.SizeOf;
+                child.this_pointer = first_element_address_ + i * child.Size;
                 this.Add(child);
             }
         }
 
-        void IPointable.Parse(Memory mem)
-        {
-            mem.instance_table.Add(new Memory.mem_ref() { client = this, address = this.first_element_address_, count = this.count_, type = typeof(TTagBlock), external = !mem.Contains(this) });
-            foreach (var item in this)
-            {
-                item.Parse(mem);
-            }
-        }
+        //void IPointable.Parse(Memory mem)
+        //{
+        //    mem.instance_table.Add(new Memory.mem_ref() { client = this, address = this.first_element_address_, count = this.count_, type = typeof(TTagBlock), external = !mem.Contains(this) });
+        //    foreach (var item in this)
+        //    {
+        //        item.Parse(mem);
+        //    }
+        //}
 
-        int IPointable.Address
-        {
-            get
-            {
-                return this.first_element_address_;
-            }
-            set
-            {
-                int shift = value - this.first_element_address_;
-                this.first_element_address_ = value;
-                foreach (var item in this)
-                    item.Address += shift;
-                parent.SetField(this);
-            }
-        }
+        //int IPointable.Address
+        //{
+        //    get
+        //    {
+        //        return this.first_element_address_;
+        //    }
+        //    set
+        //    {
+        //        int shift = value - this.first_element_address_;
+        //        this.first_element_address_ = value;
+        //        foreach (var item in this)
+        //            item.Address += shift;
+        //        parent.SetField(this);
+        //    }
+        //}
 
-        int IPointable.SizeOf
-        {
-            get { return Count * new TTagBlock().SizeOf; }
-        }
+        //int IPointable.SizeOf
+        //{
+        //    get { return Count * new TTagBlock().SizeOf; }
+        //}
 
-        int IPointable.Alignment
-        {
-            get { return new TTagBlock().Alignment; }
-        }
+        //int IPointable.Alignment
+        //{
+        //    get { return new TTagBlock().Alignment; }
+        //}
 
-        void IPointable.PointTo(Memory mem)
-        {
-            mem.instance_table.Add(new Memory.mem_ref() { client = this, address = this.first_element_address_, count = this.count_, type = typeof(TTagBlock), external = !mem.Contains(this) });
-            foreach (var item in this)
-            {
-                item.PointTo(mem);
-            }
-        }
+        //void IPointable.PointTo(Memory mem)
+        //{
+        //    mem.instance_table.Add(new Memory.mem_ref() { client = this, address = this.first_element_address_, count = this.count_, type = typeof(TTagBlock), external = !mem.Contains(this) });
+        //    foreach (var item in this)
+        //    {
+        //        item.PointTo(mem);
+        //    }
+        //}
 
-        void IPointable.CopyTo(Stream stream)
-        {
-                                                                                            ////        This code is bad and I feel bad.                            ////
-            this.first_element_address_ = (int)stream.Position;                             // 1. Set the element address to this memory position
-            foreach (var item in this)                                                      // 2. Write out all the elements to reserve thier memory space.
-            {
-                stream.Write(item.GetMemory().ToArray(), 0, (item as IPointable).SizeOf);
-            }
-            foreach (var item in this)                                                      // 3. foreach element 'copyto' to allow the children blocks to reserve space
-            {
-                item.CopyTo(stream);
-            }                                                                               // 4.a this should also allow all children blocks to bubble up values
-            var last_address = stream.Position;
-            stream.Position = this.first_element_address_;                                  // <- Go back to our reserved memory
-            foreach (var item in this)                                                      // 5. Write out all the elements again to update bubbled values
-            {
-                stream.Write(item.GetMemory().ToArray(), 0, (item as IPointable).SizeOf);
-            }
-            stream.Position = last_address;                                                 //restore last memory offset...
-            if (this.Count == 0) this.first_element_address_ = 0;                           //<- if there's zero elements we should not have an address to anything...
-            this.parent.SetField(this);                                                     // 6. set field to allow bubble-up of values
-            
-        }
+        //void IPointable.CopyTo(Stream stream)
+        //{
+        //                                                                                    ////        This code is bad and I feel bad.                            ////
+        //    this.first_element_address_ = (int)stream.Position;                             // 1. Set the element address to this memory position
+        //    foreach (var item in this)                                                      // 2. Write out all the elements to reserve thier memory space.
+        //    {
+        //        stream.Write(item.GetMemory().ToArray(), 0, (item as IPointable).SizeOf);
+        //    }
+        //    foreach (var item in this)                                                      // 3. foreach element 'copyto' to allow the children blocks to reserve space
+        //    {
+        //        item.CopyTo(stream);
+        //    }                                                                               // 4.a this should also allow all children blocks to bubble up values
+        //    var last_address = stream.Position;
+        //    stream.Position = this.first_element_address_;                                  // <- Go back to our reserved memory
+        //    foreach (var item in this)                                                      // 5. Write out all the elements again to update bubbled values
+        //    {
+        //        stream.Write(item.GetMemory().ToArray(), 0, (item as IPointable).SizeOf);
+        //    }
+        //    stream.Position = last_address;                                                 //restore last memory offset...
+        //    if (this.Count == 0) this.first_element_address_ = 0;                           //<- if there's zero elements we should not have an address to anything...
+        //    this.parent.SetField(this);                                                     // 6. set field to allow bubble-up of values
 
-        int IArrayField.Address
+        //}
+
+        int IFieldArray.Address
         {
             get
             {
@@ -166,15 +168,28 @@ namespace Moonfish.Core
             }
         }
 
-
-        IEnumerable<IAField> IArrayField.Fields
+        IList<IAField> IFieldArray.Fields
         {
-            get { foreach (IAField item in this) yield return item; }
+
+            get
+            {
+                var ttt = this.Select(x => x as IAField).ToList();
+                return ttt;
+            }
+        }
+
+        void IFixedArray.CopyFrom(Stream source)
+        {
+            foreach (TagBlock value in this)
+            {
+                value.Parse(source);
+            }
         }
     }
 
-    public abstract class TagBlock : IStructure, IPointable,  IAField,
-        IEnumerable<TagBlockField>, IEnumerable<StringID>, IEnumerable<TagIdentifier>, IEnumerable<tag_pointer>, IEnumerable<IArrayField>
+    public abstract class TagBlock : IStructure,  IAField,
+        IEnumerable<TagBlockField>, IEnumerable<StringID>, IEnumerable<TagIdentifier>, 
+        IEnumerable<TagPointer>, IEnumerable<IFieldArray>
     {
         const int DefaultAlignment = 4;
         protected readonly int size;
@@ -203,8 +218,35 @@ namespace Moonfish.Core
             definition.FromArray(this.memory_.ToArray());
             return definition;
         }
+        public void Parse(Stream map)
+        {
+            map.Position = this.this_pointer;
+            map.Read(this.memory_.GetBuffer(), 0, this.size);
+            foreach (var field in fixed_fields)
+            {
+                byte[] field_data = new byte[field.Object.SizeOfField];
+                this.memory_.Position = field.FieldOffset;
+                this.memory_.Read(field_data, 0, field_data.Length);
+                field.Object.SetFieldData(field_data);
 
-        internal int tagblock_id = -1;
+                /* if the field is a fixed array type I want to load all the values into it.
+                 * TagBlockList<T>, ByteArray, ShortArray, ResourceArray... etc all at once
+                 * */
+
+                var nested_tagblock = field.Object as IFixedArray;
+                if (nested_tagblock != null)
+                {
+                    nested_tagblock.CopyFrom(map);
+                } 
+                var nested_resource = field.Object as IResource;
+                if (nested_resource != null)
+                {
+                    nested_resource.CopyFrom(map);
+                }
+            }
+        }
+        public void SetAddress(int addres) { this.this_pointer = addres; }
+        protected int tagblock_id = -1;
         internal int this_pointer = 0;
 
         protected TagBlock(int size, int alignment = DefaultAlignment)
@@ -259,110 +301,80 @@ namespace Moonfish.Core
             return fixed_fields[field_index].Object as IField;
         }
 
+        //Fuck this code in particular
+        //void IPointable.Parse(Memory mem)
+        //{
+        //    if ((this.memory_ = mem.getmem(this)) != null)
+        //    {
+        //        foreach (var field in fixed_fields)
+        //        {
+        //            byte[] field_data = new byte[field.Object.SizeOfField];
+        //            this.memory_.Position = field.FieldOffset;
+        //            this.memory_.Read(field_data, 0, field_data.Length);
+        //            field.Object.SetFieldData(field_data);
 
-        IEnumerator<TagBlockField> IEnumerable<TagBlockField>.GetEnumerator()
-        {
-            foreach (TagBlockField field in this.fixed_fields)
-            {
-                yield return field;
-            }
-        }
+        //            var nested_tagblock = field.Object as IPointable;
+        //            if (nested_tagblock != null)
+        //            {
+        //                nested_tagblock.Parse(mem);
+        //            }
+        //        }
+        //    }
+        //}
 
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
-        {
-            return fixed_fields.GetEnumerator();
-        }
+        //int IPointable.Address
+        //{
+        //    get { return this.this_pointer; }
+        //    set { this.this_pointer = value; }
+        //}
 
-        void IPointable.Parse(Memory mem)
-        {
-            if ((this.memory_ = mem.getmem(this)) != null)
-            {
-                foreach (var field in fixed_fields)
-                {
-                    byte[] field_data = new byte[field.Object.SizeOfField];
-                    this.memory_.Position = field.FieldOffset;
-                    this.memory_.Read(field_data, 0, field_data.Length);
-                    field.Object.SetFieldData(field_data);
+        //int IPointable.SizeOf
+        //{
+        //    get { return this.size; }
+        //}
 
-                    var nested_tagblock = field.Object as IPointable;
-                    if (nested_tagblock != null)
-                    {
-                        nested_tagblock.Parse(mem);
-                    }
-                }
-            }
-        }
+        //int IPointable.Alignment
+        //{
+        //    get { return this.alignment; }
+        //}
 
-        int IPointable.Address
-        {
-            get { return this.this_pointer; }
-            set { this.this_pointer = value; }
-        }
+        //void IPointable.PointTo(Memory mem)
+        //{
+        //    if ((this.memory_ = mem.getmem(this)) != null)
+        //    {
+        //        foreach (var field in fixed_fields)
+        //        {
+        //            var nested_tagblock = field.Object as IPointable;
+        //            if (nested_tagblock != null)
+        //            {
+        //                nested_tagblock.PointTo(mem);
+        //            }
+        //        }
+        //    }
+        //}
 
-        int IPointable.SizeOf
-        {
-            get { return this.size; }
-        }
-
-        int IPointable.Alignment
-        {
-            get { return this.alignment; }
-        }
-
-        void IPointable.PointTo(Memory mem)
-        {
-            if ((this.memory_ = mem.getmem(this)) != null)
-            {
-                foreach (var field in fixed_fields)
-                {
-                    var nested_tagblock = field.Object as IPointable;
-                    if (nested_tagblock != null)
-                    {
-                        nested_tagblock.PointTo(mem);
-                    }
-                }
-            }
-        }
-
-        void IPointable.CopyTo(Stream output)
-        {
-            foreach (var field in fixed_fields)
-            {
-                var nested_tagblock = field.Object as IPointable;
-                if (nested_tagblock != null)
-                {
-                    nested_tagblock.CopyTo(output);
-                }
-                (this as IStructure).SetField(field.Object);
-                //byte[] field_data = new byte[field.Object.SizeOfField];
-                //this.memory_.Position = field.FieldOffset;
-                //this.memory_.Read(field_data, 0, field_data.Length);
-                //field.Object.SetFieldData(field_data);                
-            }
-        }
-
+        //void IPointable.CopyTo(Stream output)
+        //{
+        //    foreach (var field in fixed_fields)
+        //    {
+        //        var nested_tagblock = field.Object as IPointable;
+        //        if (nested_tagblock != null)
+        //        {
+        //            nested_tagblock.CopyTo(output);
+        //        }
+        //        (this as IStructure).SetField(field.Object);
+        //        //byte[] field_data = new byte[field.Object.SizeOfField];
+        //        //this.memory_.Position = field.FieldOffset;
+        //        //this.memory_.Read(field_data, 0, field_data.Length);
+        //        //field.Object.SetFieldData(field_data);                
+        //    }
+        //}
 
         /// <summary>
-        /// 
+        /// Generic class for searching nested TagBlocks for T and returning a combined Enumerable<T> object
         /// </summary>
-        /// <returns>Returns a sequence of ALL string_ids in ALL nested tag_blocks supporting string_id enumeration</returns>
-        IEnumerator<StringID> IEnumerable<StringID>.GetEnumerator()
-        {
-            foreach (var subitem in this.GetEnumeratorsRecursively<StringID>())
-            {
-                yield return subitem;
-            }
-        }
-        IEnumerator<TagIdentifier> IEnumerable<TagIdentifier>.GetEnumerator()
-        {
-            List<TagIdentifier> items = new List<TagIdentifier>(this.GetEnumeratorsRecursively<TagIdentifier>());
-            List<tag_pointer> pointer_items = new List<tag_pointer>(this.GetEnumeratorsRecursively<tag_pointer>());
-            items.AddRange(pointer_items.Select(x => (TagIdentifier)x).ToArray());
-            foreach (var subitem in items)
-            {
-                yield return subitem;
-            }
-        }
+        /// <typeparam name="T">Reference type to search for</typeparam>
+        /// <returns></returns>
         IEnumerable<T> GetEnumeratorsRecursively<T>() where T : class
         {
             List<T> buffer = new List<T>();
@@ -386,12 +398,70 @@ namespace Moonfish.Core
             }
             return buffer;
         }
-        IEnumerator<IArrayField> IEnumerable<IArrayField>.GetEnumerator()
+        /// <summary>
+        /// Returns all StringIDs from this TagBlock and all nested TagBlocks
+        /// </summary>
+        /// <returns>returns an IEnumerator<StringID></returns>
+        IEnumerator<StringID> IEnumerable<StringID>.GetEnumerator()
         {
-            foreach (var subitem in this.GetEnumeratorsRecursively<IArrayField>())
+            foreach (var subitem in this.GetEnumeratorsRecursively<StringID>())
             {
                 yield return subitem;
             }
+        }
+        /// <summary>
+        /// Returns all TagIdentifiers¹ from this TagBlock and all nested TagBlocks
+        /// ¹Also searches for tag_pointers and returns the TagIdentifier property with
+        /// the enumerator
+        /// </summary>
+        /// <returns>returns an IEnumerator<TagIdentifier></returns>
+        IEnumerator<TagIdentifier> IEnumerable<TagIdentifier>.GetEnumerator()
+        {
+            List<TagIdentifier> items = new List<TagIdentifier>(this.GetEnumeratorsRecursively<TagIdentifier>());
+            List<TagPointer> pointer_items = new List<TagPointer>(this.GetEnumeratorsRecursively<TagPointer>());
+            items.AddRange(pointer_items.Select(x => (TagIdentifier)x).ToArray());
+            foreach (var subitem in items)
+            {
+                yield return subitem;
+            }
+        }
+        /// <summary>
+        /// Retusn all tag_pointers from this TagBlock and all nested TagBlocks
+        /// </summary>
+        /// <returns>returns an IEnumerator<tag_pointer></returns>
+        IEnumerator<TagPointer> IEnumerable<TagPointer>.GetEnumerator()
+        {
+            foreach (var subitem in this.GetEnumeratorsRecursively<TagPointer>())
+            {
+                yield return subitem;
+            }
+        }
+        /// <summary>
+        /// Returns all IArrayFields from this TagBlock and all nested TagBlocks
+        /// </summary>
+        /// <returns></returns>
+        IEnumerator<IFieldArray> IEnumerable<IFieldArray>.GetEnumerator()
+        {
+            foreach (var subitem in this.GetEnumeratorsRecursively<IFieldArray>())
+            {
+                yield return subitem;
+            }
+        }
+        /// <summary>
+        /// Returns all TagBlockFields from this TagBlock
+        /// </summary>
+        /// <returns></returns>
+        IEnumerator<TagBlockField> IEnumerable<TagBlockField>.GetEnumerator()
+        {
+            foreach (TagBlockField field in this.fixed_fields)
+            {
+                yield return field;
+            }
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        {
+            return fixed_fields.GetEnumerator();
         }
 
         int IAField.Size
@@ -399,13 +469,11 @@ namespace Moonfish.Core
             get { return this.size; }
         }
 
-        IEnumerator<tag_pointer> IEnumerable<tag_pointer>.GetEnumerator()
-        {
-            foreach (var subitem in this.GetEnumeratorsRecursively<tag_pointer>())
-            {
-                yield return subitem;
-            }
-        }
+    }
+
+    public interface IFixedArray
+    {
+        void CopyFrom(Stream source);
     }
 
     public abstract class FixedArray<T> : List<T>, IField, IEnumerable<T>
@@ -444,21 +512,10 @@ namespace Moonfish.Core
         }
     }
 
-    public class ByteArray : FixedArray<byte>, IPointable, IReferenceable<ByteArray, resource_identifier>
+    public class ByteArray : FixedArray<byte>, IPointable
     {
-        int id_;
         protected MemoryStream memory_;
         int alignment = 4;
-
-        void IReferenceable<ByteArray, resource_identifier>.CopyReferences(IReferenceList<ByteArray, resource_identifier> source_graph, IReferenceList<ByteArray, resource_identifier> destination_graph)
-        {
-            throw new NotImplementedException();
-        }
-
-        void IReferenceable<ByteArray, resource_identifier>.CreateReferences(IReferenceList<ByteArray, resource_identifier> destination_graph)
-        {
-            this.id_ = destination_graph.Link(new resource_identifier() { Identifier = this.id_, ResourceType = this.GetType() }, this).Identifier;
-        }
 
         void IPointable.Parse(Memory mem)
         {
@@ -507,8 +564,61 @@ namespace Moonfish.Core
         }
     }
 
-    [System.AttributeUsage(AttributeTargets.Class,
-        AllowMultiple = false, Inherited = false)]
+    /* Intent: Interface used for loading raw out of a mapstream when parsing 
+     * a TagBlock out of it.
+     * While the parsing is going on we'll use this interface to 'break-out' of
+     * the normal bounds we allow the TagBlock to read from.
+     */
+    public interface IResource
+    {
+        void CopyFrom(Stream map);
+    }
+
+    public class ModelRaw : FixedArray<byte>, IField, IResource
+    {
+        uint Address { get; set; }
+        uint Length { get; set; }
+        uint HeaderSize { get; set; }
+        uint ResourceDataLength { get; set; }
+
+        byte[] IField.GetFieldData()
+        {
+            byte[] buffer = new byte[16];
+            BitConverter.GetBytes(Address).CopyTo(buffer, 0);
+            BitConverter.GetBytes(Length).CopyTo(buffer, 4);
+            BitConverter.GetBytes(HeaderSize).CopyTo(buffer, 8);
+            BitConverter.GetBytes(ResourceDataLength).CopyTo(buffer, 12);
+            return buffer;
+        }
+
+        void IField.SetFieldData(byte[] field_data, IStructure caller)
+        {
+            Address = BitConverter.ToUInt32(field_data, 0);
+            Length = BitConverter.ToUInt32(field_data, 4);
+            HeaderSize = BitConverter.ToUInt32(field_data, 8);
+            ResourceDataLength = BitConverter.ToUInt32(field_data, 12);
+        }
+
+        int IField.SizeOfField
+        {
+            get { return 16; }
+        }
+
+        void IField.Initialize(IStructure calling_structure)
+        {
+            parent = calling_structure;
+        }
+
+        void IResource.CopyFrom(Stream map)
+        {
+            map.Position = Address;
+            byte[] buffer = new byte[this.Length];
+            map.Read(buffer, 0, buffer.Length);
+            this.AddRange(buffer);
+        }
+    }
+
+    [System.AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
     public class TagClassAttribute : System.Attribute
     {
         public TagClass Tag_Class { get; set; }
@@ -518,20 +628,9 @@ namespace Moonfish.Core
         }
     }
 
-    public struct Segment
-    {
-        public readonly long Offset;
-        public readonly int Length;
-        public Segment(int offset, int length)
-        {
-            Offset = offset;
-            Length = length;
-        }
-    }
-
     /// <summary>
     /// Wrapper structure for linking an IField object with a field offset value
-    /// </summary>    C:\Users\stem\Documents\Visual Studio 2012\Projects\moonfish\Moonfish\Moonfish.Core\TagBlockDefinition.cs
+    /// </summary>
     public struct TagBlockField
     {
         public readonly IField Object;

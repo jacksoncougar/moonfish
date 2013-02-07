@@ -195,7 +195,7 @@ namespace Moonfish.Core.Definitions
             this.resource_length = total_resource_size;
             this.resource_offset = resource_offset;
         }
-
+        public DResource() { }
         byte[] IDefinition.ToArray()
         {
             MemoryStream buffer = new MemoryStream();

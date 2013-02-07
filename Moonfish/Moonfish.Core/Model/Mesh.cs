@@ -190,6 +190,10 @@ namespace Moonfish.Core.Model
             return triangle_count;
         }
 
+        public bool Load(ICollection<byte> raw_data, IEnumerable<model.Section.Resource> resources, model.CompressionRanges compression_ranges) 
+        {
+            return Load(raw_data.ToArray(), resources.Select(x => x.GetDefinition<DResource>()), compression_ranges.GetDefinition<DCompressionRanges>());
+        }
         /// <summary>
         /// Deserializes a Halo 2 formatted raw-resource block and initializes the Mesh object from it
         /// </summary>
@@ -197,7 +201,7 @@ namespace Moonfish.Core.Model
         /// <param name="raw_resources"></param>
         /// <param name="compression_ranges"></param>
         /// <returns></returns>
-        public bool Load(byte[] raw_data, DResource[] raw_resources, DCompressionRanges compression_ranges)
+        public bool Load(byte[] raw_data, IEnumerable<DResource> raw_resources, DCompressionRanges compression_ranges)
         {
             const int first_address = 4 + 116;
             int coord_size = 0;
@@ -639,7 +643,7 @@ namespace Moonfish.Core.Model
                     xml.WriteAttributeString("TagName", tagname);
                     xml.WriteEndElement();
                 }
-                else if (field.Object.GetType() == typeof(tag_pointer))
+                else if (field.Object.GetType() == typeof(TagPointer))
                 {
                     xml.WriteStartElement("Ident");
                     xml.WriteAttributeString("Description", "Waffle");

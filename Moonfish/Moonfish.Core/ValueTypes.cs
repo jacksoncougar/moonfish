@@ -9,14 +9,14 @@ using System.Globalization;
 
 namespace Moonfish.Core
 {
-    public class tag_pointer : IField
+    public class TagPointer : IField
     {
         IStructure parent;
         TagClass tag_class;
         TagIdentifier tag_identifier; 
         const int size = 8;
 
-        public static implicit operator TagIdentifier(tag_pointer pointer)
+        public static implicit operator TagIdentifier(TagPointer pointer)
         {
             return pointer.tag_identifier;
         }
@@ -375,7 +375,5 @@ namespace Moonfish.Core
         }
 
         #endregion
-    }
-
-    
+    }    
 }

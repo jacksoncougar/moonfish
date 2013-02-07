@@ -10,7 +10,7 @@ namespace Moonfish.Core
     /// <summary>
     /// A minimalist class to load essential data which can be used to parse a retail cache map.
     /// </summary>
-    public class MapStream : FileStream
+    public class MapStream : FileStream, IMap
     {
         /// <summary>
         /// name of this cache (is not used in anything, just compiled into the header)
@@ -135,6 +135,28 @@ namespace Moonfish.Core
             }
         }
 
+        Tag current_tag = new Tag();
+        public IMap this[string tag_class, string tag_name]
+        {
+            get
+            {
+                if (current_tag.Type == (TagClass)tag_class && current_tag.Path.Contains(tag_name)) return this;
+                current_tag = FindFirst((TagClass)tag_class, tag_name);
+                return this;
+            }
+        }
+
+        TagBlock IMap.Export()
+        {
+            return GetTag(current_tag);
+        }
+
+        Tag IMap.Meta
+        {
+            get { return current_tag; }
+            set { }
+        }
+
         public override long Position
         {
             get
@@ -229,14 +251,15 @@ namespace Moonfish.Core
 
         Memory GetTagMemory(Tag meta)
         {
-            BinaryReader bin_reader = new BinaryReader(this);
-            this.Position = meta.VirtualAddress;
-            Memory mem = new Memory(bin_reader.ReadBytes(meta.Length), meta.VirtualAddress);
-            TagBlock block = Halo2.CreateInstance(meta.Type);
-            mem.instance_table.Add(new Memory.mem_ref() { address = meta.VirtualAddress, client = block, count = 1, external = false, type = block.GetType() });
-            (block as IPointable).Address = meta.VirtualAddress;
-            (block as IPointable).Parse(mem);
-            return mem;
+            //BinaryReader bin_reader = new BinaryReader(this);
+            //this.Position = meta.VirtualAddress;
+            //Memory mem = new Memory(bin_reader.ReadBytes(meta.Length), meta.VirtualAddress);
+            //TagBlock block = Halo2.CreateInstance(meta.Type);
+            //mem.instance_table.Add(new Memory.mem_ref() { address = meta.VirtualAddress, client = block, count = 1, external = false, type = block.GetType() });
+            //(block as IPointable).Address = meta.VirtualAddress;
+            //(block as IPointable).Parse(mem);
+            //return mem;
+            return new Memory ();
         }
 
         //void PostProcessTag(TagBlockWrapper wrapper)
@@ -259,7 +282,7 @@ namespace Moonfish.Core
         //    //wrapper.references[i].TagblockID = resource_owner.tagblocks.Select(x => x.).Single();//Select(x => x.Offset).Single();
         //}
 
-        public Tag FindFirst(TagClass tag_class, string path_fragment)
+        Tag FindFirst(TagClass tag_class, string path_fragment)
         {
             foreach (var tag in this.Tags)
             {
@@ -269,12 +292,11 @@ namespace Moonfish.Core
             return new Tag();
         }
 
-        public TagBlock GetTag(Tag tag)
+        TagBlock GetTag(Tag tag)
         {
             TagBlock block = Halo2.CreateInstance(tag.Type);
-            (block as IPointable).Address = tag.VirtualAddress;
-            Memory memory = GetTagMemory(tag);
-            (block as IPointable).Parse(memory);
+            block.SetAddress(tag.VirtualAddress);
+            block.Parse(this);
             return block;
         }
     }
@@ -290,6 +312,19 @@ namespace Moonfish.Core
         }
     }
 
+    public interface IMap
+    {
+        /// <summary>
+        /// Returns a TagBlock from the current class
+        /// </summary>
+        /// <returns></returns>
+        TagBlock Export();
+        /// <summary>
+        /// Access meta information about the tag
+        /// </summary>
+        Tag Meta { get; set; }
+    }
+
     public class Tag
     {
         public TagClass Type;
@@ -298,5 +333,10 @@ namespace Moonfish.Core
         public int VirtualAddress;
         public int Offset;
         public int Length;
+
+        internal bool Contains(int address)
+        {
+            return (address >= VirtualAddress && address < VirtualAddress + Length);
+        }
     }
 }

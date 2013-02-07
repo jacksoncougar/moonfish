@@ -11,7 +11,7 @@ namespace Moonfish.Core.Definitions
         public prt3()
             : base(188, new TagBlockField[] { 
             new TagBlockField(null, 12),
-            new TagBlockField(new tag_pointer()),
+            new TagBlockField(new TagPointer()),
             new TagBlockField(new TagBlockList<tagblock0>()),
             new TagBlockField(null, 8),
             new TagBlockField(new ByteArray()),
@@ -23,8 +23,8 @@ namespace Moonfish.Core.Definitions
             new TagBlockField(new ByteArray()),
             new TagBlockField(null, 8),
             new TagBlockField(new ByteArray()),
-            new TagBlockField(new tag_pointer()),
-            new TagBlockField(new tag_pointer()),
+            new TagBlockField(new TagPointer()),
+            new TagBlockField(new TagPointer()),
             new TagBlockField(new TagBlockList<tagblock1>()),
             new TagBlockField(new TagBlockList<tagblock2>()),
             new TagBlockField(new TagBlockList<shader.tagblock1>()),
@@ -35,7 +35,7 @@ namespace Moonfish.Core.Definitions
                 : base(40, new TagBlockField[]{
                 new TagBlockField(new StringID()),
                 new TagBlockField(null, 4),
-                new TagBlockField(new tag_pointer()),
+                new TagBlockField(new TagPointer()),
             }) { }
         }
         public class tagblock1 : TagBlock
@@ -49,7 +49,7 @@ namespace Moonfish.Core.Definitions
         {
             public tagblock2()
                 : base(56, new TagBlockField[]{
-                new TagBlockField(new tag_pointer()),
+                new TagBlockField(new TagPointer()),
                 new TagBlockField(null, 40),
                 new TagBlockField(new TagBlockList<tagblock2_0>()),
             }) { }
@@ -57,7 +57,7 @@ namespace Moonfish.Core.Definitions
             {
                 public tagblock2_0()
                     : base(184, new TagBlockField[]{
-                    new TagBlockField(new tag_pointer()),
+                    new TagBlockField(new TagPointer()),
                     new TagBlockField(null, 8),
                     new TagBlockField(new ByteArray()),
                     new TagBlockField(null, 8),

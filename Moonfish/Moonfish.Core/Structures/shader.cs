@@ -10,24 +10,24 @@ namespace Moonfish.Core
     {
         public shader()
             : base(84, new TagBlockField[]{
-                new TagBlockField(new tag_pointer()),
+                new TagBlockField(new TagPointer()),
                 new TagBlockField(new StringID()),
                 new TagBlockField(new TagBlockList<tagblock0>()),
                 new TagBlockField(null, 12),
                 new TagBlockField(new TagBlockList<tagblock1>()),
                 new TagBlockField(null, 4),
                 new TagBlockField(new TagBlockList<tagblock2>()),
-                new TagBlockField(new tag_pointer()),
+                new TagBlockField(new TagPointer()),
             }) { }
         public class tagblock0 : TagBlock
         {
             public tagblock0()
                 : base(80, new TagBlockField[]{
-                new TagBlockField(new tag_pointer()),
-                new TagBlockField(new tag_pointer()),
+                new TagBlockField(new TagPointer()),
+                new TagBlockField(new TagPointer()),
                 new TagBlockField(null, 28),
-                new TagBlockField(new tag_pointer()),
-                new TagBlockField(new tag_pointer()),
+                new TagBlockField(new TagPointer()),
+                new TagBlockField(new TagPointer()),
             }) { }
         }
         public class tagblock1 : TagBlock

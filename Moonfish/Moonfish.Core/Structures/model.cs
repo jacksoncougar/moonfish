@@ -67,22 +67,18 @@ namespace Moonfish.Core
                 public Permutation() : base(16, new TagBlockField(new StringID())) { }
             }
         }
-        public class Section : TagBlock
+        public class Section : TagBlock, IRaw
         {
-            public FixedPointer GetRawPointer()
-            {
-                BinaryReader binary_reader = new BinaryReader(this.GetMemory());
-                binary_reader.BaseStream.Position = 56;
-                return new FixedPointer() { Count = binary_reader.ReadInt32(), Address = binary_reader.ReadInt32() };
-            }
-            public TagBlockList<Resource> Resources { get { return base.fixed_fields[1].Object as TagBlockList<Resource>; } }
-            
+            public ModelRaw Raw { get { return base.fixed_fields[1].Object as ModelRaw; } }
+            public TagBlockList<Resource> Resources { get { return base.fixed_fields[2].Object as TagBlockList<Resource>; } }
+
             public Section()
                 : base(92, new TagBlockField[]{
                 new TagBlockField(null, 48),
             new TagBlockField(new TagBlockList<tagblock1_0>()),
-            /*raw here*/new TagBlockField(null, 8),     
-            new TagBlockField(null, 8),         
+            new TagBlockField(new ModelRaw()),
+            ///*raw here*/new TagBlockField(null, 8),     
+            //new TagBlockField(null, 8),         //and here
             new TagBlockField(new TagBlockList<Resource>()),
             new TagBlockField(new TagIdentifier()),
             }) { }
@@ -93,6 +89,7 @@ namespace Moonfish.Core
                 // TODO: Complete member initialization
                 this.SetDefinitionData(dSection);
             }
+
             public class tagblock1_0 : TagBlock
             {
                 public tagblock1_0() : base(88) { }
@@ -105,6 +102,11 @@ namespace Moonfish.Core
                     : this()
                 {
                     this.SetDefinitionData(dResource);
+                }
+
+                public static explicit operator DResource(Resource resource)
+                {
+                    return resource.GetDefinition<DResource>();
                 }
             }
         }
@@ -162,8 +164,8 @@ namespace Moonfish.Core
         {
             public Shader()
                 : base(32,
-                    new TagBlockField(new tag_pointer()),
-                    new TagBlockField(new tag_pointer()),
+                    new TagBlockField(new TagPointer()),
+                    new TagBlockField(new TagPointer()),
                     new TagBlockField(new TagBlockList<tagblock1_0>())
                     ) { }
 
@@ -234,5 +236,9 @@ namespace Moonfish.Core
                 }
             }
         }
+    }
+
+    public interface IRaw
+    {
     }
 }

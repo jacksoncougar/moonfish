@@ -60,7 +60,7 @@ namespace Moonfish.Core
                 : this()
             {
                 this.SetDefinitionData(dRegion);
-            }
+            }            
 
             public class Permutation : TagBlock
             {

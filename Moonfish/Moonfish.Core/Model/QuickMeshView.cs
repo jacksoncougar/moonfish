@@ -13,7 +13,7 @@ using System.Windows.Forms;
 
 namespace StarterKit
 {
-    class QuickModelView : GameWindow
+    class QuickMeshView : GameWindow
     {
         int SelectedStrip
         {
@@ -38,7 +38,7 @@ namespace StarterKit
         bool draw_strip = false;
 
         float yaw_ = default(float);
-        float rotation_speed = (float)Math.PI / (10.0f);
+        float rotation_speed = (float)Math.PI / (40.0f);
         int selectedstrip_ = 0;
         float zoom_ = zoom_min + 1.0f;
         const float zoom_max = 100.0f;
@@ -48,7 +48,7 @@ namespace StarterKit
         public ushort[] GetStrip() { return strips[0].indices; }
         private Adjacencies stripper;
 
-        public QuickModelView(Moonfish.Core.Model.Mesh mesh, Adjacencies stripper)
+        public QuickMeshView(Moonfish.Core.Model.Mesh mesh, Adjacencies stripper)
             : base(400, 400, GraphicsMode.Default, "", GameWindowFlags.Default)
         {
             // TODO: Complete member initialization
@@ -67,7 +67,7 @@ namespace StarterKit
             draw_strip = true;
         }
 
-        public QuickModelView(Moonfish.Core.Model.Mesh mesh)
+        public QuickMeshView(Moonfish.Core.Model.Mesh mesh)
             : base(400, 400, GraphicsMode.Default, "", GameWindowFlags.Default)
         {
             // TODO: Complete member initialization
@@ -106,14 +106,14 @@ namespace StarterKit
             GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(sizeof(ushort)* mesh.Indices.Length), mesh.Indices, BufferUsageHint.StaticDraw);
             
             string path = string.Empty;
-            if (File.Exists(path = Path.Combine(Application.StartupPath, "etc", "default.png")))
+            if (File.Exists(path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "gameball.BMP")))
             {
                 Bitmap bitmap = new Bitmap(path);
                 System.Drawing.Imaging.BitmapData bitmap_data = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height), System.Drawing.Imaging.ImageLockMode.ReadOnly, bitmap.PixelFormat);
 
                 int id = GL.GenTexture();
                 GL.BindTexture(TextureTarget.Texture2D, id);
-                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgb, bitmap.Width, bitmap.Height, 0, PixelFormat.Bgr, PixelType.UnsignedByte, bitmap_data.Scan0);
+                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, bitmap.Width, bitmap.Height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, bitmap_data.Scan0);
                 GL.Enable(EnableCap.Texture2D);
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
@@ -171,9 +171,6 @@ namespace StarterKit
             Matrix4 modelview = Matrix4.LookAt(new Vector3(Zoom, 0f, 1f), Vector3.Zero, Vector3.UnitZ);
             GL.MatrixMode(MatrixMode.Modelview);
             GL.LoadMatrix(ref modelview);
-            var rot = Yaw;
-            GL.Rotate(rot, Vector3.UnitZ);
-            GL.Rotate(-rot, Vector3.UnitY);
 
             if (Keyboard[Key.Escape])
             {
@@ -209,21 +206,34 @@ namespace StarterKit
 
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
+            GL.PushMatrix();
+
+            GL.Scale(10, 10, 10);
+            var rot = Yaw;
+            GL.Rotate(rot, Vector3.UnitZ);
+            GL.Rotate(-rot, Vector3.UnitY);
 
             if (draw_strip)
             {
+                GL.Color4(Color4.White);
+                GL.Begin(BeginMode.Points);
+                GL.Vertex3(light0_position.Xyz);
+                GL.End();
                 GL.Enable(EnableCap.Lighting);
                 GL.Color4(Color4.LawnGreen);
                 GL.DrawArrays(BeginMode.Points, 0, mesh.Vertices.Length);
                 foreach (var group in mesh.ShaderGroups)
                 {
-                    GL.Color4(new Color4((byte)(0x33 + (group.shader_index * 36)), (byte)(0x33 + (group.shader_index * 36)), 
-                        (byte)(0x33 + (group.shader_index * 36)), (byte)(0x33 - (group.shader_index * 36))));
+                    GL.Color4(Color4.Wheat);
                     GL.DrawElements(BeginMode.TriangleStrip, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);
                 }
                 GL.Color4(new Color4(0x11, 0x11, 0x11, 0xFF));
                 GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
-                GL.DrawElements(BeginMode.TriangleStrip, mesh.Indices.Length, DrawElementsType.UnsignedShort, 0);
+                foreach (var group in mesh.ShaderGroups)
+                {
+                    GL.Color4(0x33,0x33,0x33,0xFF);
+                    GL.DrawElements(BeginMode.TriangleStrip, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);
+                }
                 GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
             
                 GL.Disable(EnableCap.Lighting);
@@ -234,20 +244,21 @@ namespace StarterKit
                     {
                         GL.Color4(Color4.Green);
                         GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position);
-                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position + (Vector3)mesh.Vertices[strips[i].indices[j]].Normal * 0.15f); GL.Color4(Color4.Red);
+                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position + (Vector3)mesh.Vertices[strips[i].indices[j]].Normal * 0.001f); 
 
                         GL.Color4(Color4.Red);
                         GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position);
-                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position + (Vector3)mesh.Vertices[strips[i].indices[j]].Tangent * 0.15f); GL.Color4(Color4.Red);
+                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position + (Vector3)mesh.Vertices[strips[i].indices[j]].Tangent * 0.001f); 
                        
                         GL.Color4(Color4.Blue); 
                         GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position);
-                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position + (Vector3)mesh.Vertices[strips[i].indices[j]].Bitangent * 0.15f);
+                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position + (Vector3)mesh.Vertices[strips[i].indices[j]].Bitangent * 0.001f);
                         
                     }
                     GL.End();
                 }
             }
+            GL.PopMatrix();
             SwapBuffers();
         }
     }

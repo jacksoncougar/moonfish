@@ -5,5 +5,13 @@ using System.IO;
 
 namespace Moonfish.Core
 {
-
+    public interface IMeta
+    {
+        void CopyFrom(Stream source);
+        int Size { get; }
+    }
+    public interface IResource
+    {
+        void CopyFrom(Stream map);
+    }
 }

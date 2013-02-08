@@ -15,6 +15,11 @@ namespace Moonfish.Core.Definitions
         int Size { get; }
     }
 
+    public class Region : DRegion
+    {
+        public DPermutation[] Permutations;
+    }
+
     public class CompressionInformation : DCompressionRanges
     {
         public bool CompressTexcoords = true;
@@ -95,6 +100,33 @@ namespace Moonfish.Core.Definitions
         int IDefinition.Size
         {
             get { return 8; }
+        }
+    }
+
+    public class DPermutation : IDefinition
+    {
+        public StringID Name = StringID.Zero;
+        public short Index;
+        public short HighLOD;
+
+        byte[] IDefinition.ToArray()
+        {
+            byte[] buffer = new byte[(this as IDefinition).Size];
+            BitConverter.GetBytes((int)Name).CopyTo(buffer, 0);
+            BitConverter.GetBytes(Index).CopyTo(buffer, 4);
+            return buffer;
+        }
+
+        void IDefinition.FromArray(byte[] buffer)
+        {
+            this.Name = (StringID)BitConverter.ToInt32(buffer, 0);
+            this.Index = BitConverter.ToInt16(buffer, 4);
+            this.HighLOD = BitConverter.ToInt16(buffer, 14);
+        }
+
+        int IDefinition.Size
+        {
+            get { return 16; }
         }
     }
 

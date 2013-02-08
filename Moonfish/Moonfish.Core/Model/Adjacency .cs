@@ -236,12 +236,6 @@ namespace Moonfish.Core.Model.Adjacency
                 {
                     processing = false;
                     var curface = triangle_buffer[face_index];
-                    if (curface.AdjacentTriangles[0] == 0xFFFF &&
-                        curface.AdjacentTriangles[1] == 0xFFFF &&
-                        curface.AdjacentTriangles[2] == 0xFFFF)
-                    {
-                        int i = 0;
-                    }
                 }
                 else
                 {

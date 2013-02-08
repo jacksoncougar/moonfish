@@ -28,7 +28,6 @@ namespace Moonfish.Core
     public interface IStructure
     {
         void SetField(IField calling_field);
-        IField GetField(int field_index);
     }
 
     /// <summary>

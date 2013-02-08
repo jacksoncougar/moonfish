@@ -872,10 +872,10 @@ namespace Moonfish.Core.Model
                 position.Y = Inflate(position.Y, compression_ranges.Y);
                 position.Z = Inflate(position.Z, compression_ranges.Z);
                 Vector2 texcoord = new Vector2(
-                    BitConverter.ToInt16(coord_raw, i * coord_size),
-                    BitConverter.ToInt16(coord_raw, i + 1 * coord_size));
-                texcoord.X = Inflate(position.X, compression_ranges.U);
-                texcoord.Y = Inflate(position.Y, compression_ranges.V);
+                    BitConverter.ToInt16(texcoord_raw, i * texcoord_size),
+                    BitConverter.ToInt16(texcoord_raw, (i * texcoord_size) + 2));
+                texcoord.X = Inflate(texcoord.X, compression_ranges.U);
+                texcoord.Y = Inflate(texcoord.Y, compression_ranges.V);
                 vertices[i] = new StandardVertex()
                 {
                     Position = position,
@@ -910,9 +910,8 @@ namespace Moonfish.Core.Model
         }
         static float Inflate(float value_in_range, Range range)
         {
-            const float Max = 1.0f / ushort.MaxValue;
-            const float Half = short.MaxValue;
-            return (((value_in_range + Half) * Max) * (range.max - range.min)) + range.min;
+            const float ushort_max_inverse = 1.0f / ushort.MaxValue;
+            return (((value_in_range + short.MaxValue) * ushort_max_inverse) * (range.max - range.min)) + range.min;
         }
 
         #region Laziness
@@ -1042,7 +1041,7 @@ namespace Moonfish.Core.Model
 
         public void Show()
         {
-            QuickModelView render_window = new QuickModelView(this);
+            QuickMeshView render_window = new QuickMeshView(this);
             render_window.Run(60);
         }
     }

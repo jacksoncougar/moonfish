@@ -260,7 +260,7 @@ namespace Moonfish.Core
             var copy = (StringID)BitConverter.ToInt32(field_data, 0);
             copy.parent = this.parent;//copy pointer to parent//
             this.Copy(copy);
-            if (parent != null)
+            if (caller != parent && parent != null)
                 parent.SetField(this);
         }
 

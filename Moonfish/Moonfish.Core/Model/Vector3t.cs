@@ -99,7 +99,7 @@ namespace Moonfish.Core.Model
             Vector3 test = new Vector3(X, Y, Z); float rounded;
             if ((rounded = (float)System.Math.Round(test.Length, 2)) != 1)
             {
-                throw new InvalidDataException();
+                Log.Warn("Zero vector found?");
             }
         }
 

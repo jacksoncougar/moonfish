@@ -1,4 +1,5 @@
-﻿using OpenTK;
+﻿using Moonfish.Core.Definitions;
+using OpenTK;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using System;
@@ -79,8 +80,44 @@ namespace Moonfish.Core.Model
             {
                 RenderMesh(region.Permutations[0].HighLOD);
             }
+            RenderNodes();
             GL.PopMatrix();
             SwapBuffers();
+        }
+
+        private void RenderNodes()
+        {
+            GL.Color4(Color4.Red);
+            GL.PointSize(2.50f);
+            GL.Begin(BeginMode.Lines);
+            RenderNodes(model.Nodes[0], model.Nodes[0]);
+            GL.End();
+        }
+
+        private void RenderNodes(DNode parent, DNode node)
+        {
+            /* Intent: render the current node (root) at its position,
+             * then push all the nodes translations onto the stack and render the next child node
+             * */
+            GL.Vertex3(node.AbsolutePosition);
+            GL.Vertex3(node.AbsolutePosition + node.Up * 0.1f);
+            GL.Vertex3(node.AbsolutePosition);
+            GL.Vertex3(node.AbsolutePosition + node.Right * 0.1f);
+            GL.Vertex3(node.AbsolutePosition);
+            GL.Vertex3(node.AbsolutePosition + node.Forward * 0.1f);
+            //GL.PushMatrix();
+            //GL.Translate(node.Position);    // push translation onto stack
+            if (node.FirstChild_NodeIndex != -1)
+            {
+                var next_node = model.Nodes[node.FirstChild_NodeIndex];
+                RenderNodes(node, next_node);
+            }
+            if (node.NextSibling_NodeIndex != -1)
+            {
+                var sibling_node = model.Nodes[node.NextSibling_NodeIndex];
+                RenderNodes(parent, sibling_node);
+            }
+            //GL.PopMatrix();
         }
 
         private void RenderMesh(short p)
@@ -92,7 +129,7 @@ namespace Moonfish.Core.Model
             GL.DrawArrays(BeginMode.Points, 0, model.Mesh[p].Vertices.Length);
             foreach (var group in model.Mesh[p].ShaderGroups)
             {
-                GL.Color4(Color4.Wheat);
+                GL.Color4(Color4.RoyalBlue);
                 GL.DrawElements(BeginMode.TriangleStrip, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);
             }
         }

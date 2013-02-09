@@ -190,7 +190,7 @@ namespace Moonfish.Core.Model
             return triangle_count;
         }
 
-        public bool Load(ICollection<byte> raw_data, IEnumerable<model.Section.Resource> resources, model.CompressionRanges compression_ranges) 
+        public bool Load(ICollection<byte> raw_data, IEnumerable<model.Section.Resource> resources, model.CompressionRanges compression_ranges)
         {
             return Load(raw_data.ToArray(), resources.Select(x => x.GetDefinition<DResource>()), compression_ranges.GetDefinition<DCompressionRanges>());
         }
@@ -455,7 +455,7 @@ namespace Moonfish.Core.Model
                 TriangleStrip.Append(ref combined_strip, strips[i]);
                 this.ShaderGroups[i] = new MaterialGroup(offset, (ushort)(combined_strip.Indices.Length - offset)) { shader_index = (ushort)i };
                 Log.Info(string.Format(@"ShaderGroup[ {0} ] {{ Start = {1}, Length = {2} }}", i, offset, (combined_strip.Indices.Length - offset).ToString()));
-                offset = (ushort)combined_strip.Indices.Length; 
+                offset = (ushort)combined_strip.Indices.Length;
 
             }
             this.Indices = combined_strip.Indices;
@@ -1032,7 +1032,7 @@ namespace Moonfish.Core.Model
                 y = bin.ReadRange();
                 z = bin.ReadRange();
             }
-            
+
             int IDefinition.Size
             {
                 get { return 24; }
@@ -1043,6 +1043,55 @@ namespace Moonfish.Core.Model
         {
             QuickMeshView render_window = new QuickMeshView(this);
             render_window.Run(60);
+        }
+
+        public void ImportFromCollada(Collada141.COLLADA collada)
+        {
+            var geometries = collada.Items.SingleOrDefault(x => x is Collada141.library_geometries) as Collada141.library_geometries;
+            if (geometries == null) return;
+            ImportGeometry(geometries.geometry[0]);
+        }
+
+        private void ImportGeometry(Collada141.geometry geometry)
+        {
+            var mesh = geometry.Item as Collada141.mesh;
+            if (mesh == null) return;
+            var float_array = mesh.source[0].Item as Collada141.float_array;
+            this.Vertices = new StandardVertex[float_array.Values.Length / 3];
+            for (int i = 0; i < Vertices.Length; i++)
+            {
+                Vertices[i] = new StandardVertex()
+                {
+                    Position = new Vector3(
+                        (float)float_array.Values[i * 3 + 0],
+                        (float)float_array.Values[i * 3 + 1],
+                        (float)float_array.Values[i * 3 + 2]
+                        )
+                };
+            }
+
+            var poly_list = mesh.Items[0] as Collada141.polylist;
+            if (poly_list == null) return;
+            Triangle[] triangles = new Triangle[poly_list.count];
+            var raw_indices = Collada141.COLLADA.ConvertIntArray(poly_list.p);
+            for (int i = 0; i < triangles.Length; i++)
+            {
+                triangles[i] = new Triangle()
+                {
+                    MaterialID = 0,
+                    Vertex1 = (ushort)raw_indices[i * (3 * 2) + (0 * 2)],
+                    Vertex2 = (ushort)raw_indices[i * (3 * 2) + (1 * 2)],
+                    Vertex3 = (ushort)raw_indices[i * (3 * 2) + (2 * 2)],
+                };
+            }
+            List<ushort> triangle_indices = new List<ushort>(triangles.Length * 3);
+            foreach (var triangle in triangles)
+            {
+                triangle_indices.AddRange(triangle.ToArray());
+            }
+            Adjacencies adj = new Adjacencies(triangle_indices.ToArray());
+            this.Indices = adj.GenerateTriangleStrip();
+            this.ShaderGroups = new MaterialGroup[] { new MaterialGroup(0, (ushort)Indices.Length) };
         }
     }
 }

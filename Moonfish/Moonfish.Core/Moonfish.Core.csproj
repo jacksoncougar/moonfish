@@ -56,6 +56,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="GlobalStrings.cs" />
+    <Compile Include="Model\collada_schema_1_4.cs" />
     <Compile Include="Model\Model.cs" />
     <Compile Include="Model\ModelView.cs" />
     <Compile Include="Structures\antenna.cs" />

@@ -304,6 +304,7 @@ namespace Moonfish.Core.Definitions
         public Vector3 Right = Vector3.UnitX;
         public Vector3 Forward = Vector3.UnitY;
         public Vector3 Up = Vector3.UnitZ;
+        public Vector3 AbsolutePosition = Vector3.Zero;
 
         byte[] IDefinition.ToArray()
         {
@@ -320,6 +321,7 @@ namespace Moonfish.Core.Definitions
             bin.Write(Right);
             bin.Write(Forward);
             bin.Write(Up);
+            bin.Write(AbsolutePosition);
             return buffer.ToArray();
         }
 
@@ -337,6 +339,7 @@ namespace Moonfish.Core.Definitions
             Right = bin.ReadVector3();
             Forward = bin.ReadVector3();
             Up = bin.ReadVector3();
+            AbsolutePosition = bin.ReadVector3();
         }
 
 

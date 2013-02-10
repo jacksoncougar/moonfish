@@ -48,5 +48,10 @@ namespace Moonfish.Core.Model
             if (value > range.max) return range.max;
             return value;
         }
+
+        internal static float Median(Range range)
+        {
+            return (range.min + range.max) * 0.5f;
+        }
     }
 }

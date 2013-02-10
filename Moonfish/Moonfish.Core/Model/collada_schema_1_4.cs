@@ -9971,7 +9971,7 @@ namespace Collada141
             XmlTextWriter writer = new XmlTextWriter(stream, Encoding.UTF8);
             XmlSerializer xSerializer = new XmlSerializer(typeof(COLLADA));
             writer.Formatting = Formatting.Indented;
-            xSerializer.Serialize(writer, this);          
+                xSerializer.Serialize(writer, this);          
         }
     }
 }

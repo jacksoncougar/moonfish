@@ -104,5 +104,10 @@ namespace Moonfish.Core
         {
             return (StringID)binary_reader.ReadInt32();
         }
+
+        public static double[] ToArray(this Vector3 vector3)
+        {
+            return new double[] { vector3.X, vector3.Y, vector3.Z };
+        }
     }
 }

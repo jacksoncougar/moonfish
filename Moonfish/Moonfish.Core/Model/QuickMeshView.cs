@@ -222,14 +222,14 @@ namespace StarterKit
                 GL.Enable(EnableCap.Lighting);
                 GL.Color4(Color4.LawnGreen);
                 GL.DrawArrays(BeginMode.Points, 0, mesh.Vertices.Length);
-                foreach (var group in mesh.ShaderGroups)
+                foreach (var group in mesh.Groups)
                 {
                     GL.Color4(Color4.Wheat);
                     GL.DrawElements(BeginMode.TriangleStrip, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);
                 }
                 GL.Color4(new Color4(0x11, 0x11, 0x11, 0xFF));
                 GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
-                foreach (var group in mesh.ShaderGroups)
+                foreach (var group in mesh.Groups)
                 {
                     GL.Color4(0x33,0x33,0x33,0xFF);
                     GL.DrawElements(BeginMode.TriangleStrip, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);

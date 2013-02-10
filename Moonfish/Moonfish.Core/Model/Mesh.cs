@@ -21,7 +21,7 @@ namespace Moonfish.Core.Model
     {
         public ushort[] Indices;
         public StandardVertex[] Vertices;
-        public MaterialGroup[] ShaderGroups;
+        public MaterialGroup[] Groups;
         public CompressionInformation Compression;
 
         private CompressionInformation GenerateCompressionData()
@@ -189,7 +189,13 @@ namespace Moonfish.Core.Model
             }
             return triangle_count;
         }
-
+        /// <summary>
+        /// Deserializes a Halo 2 formatted raw-resource block and initializes the Mesh object from it
+        /// </summary>
+        /// <param name="raw_data"></param>
+        /// <param name="raw_resources"></param>
+        /// <param name="compression_ranges"></param>
+        /// <returns></returns>
         public bool Load(ICollection<byte> raw_data, IEnumerable<model.Section.Resource> resources, model.CompressionRanges compression_ranges)
         {
             return Load(raw_data.ToArray(), resources.Select(x => x.GetDefinition<DResource>()), compression_ranges.GetDefinition<DCompressionRanges>());
@@ -201,7 +207,7 @@ namespace Moonfish.Core.Model
         /// <param name="raw_resources"></param>
         /// <param name="compression_ranges"></param>
         /// <returns></returns>
-        public bool Load(byte[] raw_data, IEnumerable<DResource> raw_resources, DCompressionRanges compression_ranges)
+        bool Load(byte[] raw_data, IEnumerable<DResource> raw_resources, DCompressionRanges compression_ranges)
         {
             const int first_address = 4 + 116;
             int coord_size = 0;
@@ -223,11 +229,11 @@ namespace Moonfish.Core.Model
                     // case: Shader Groups
                     case 0:
                         // initialize the shader_groups array;
-                        ShaderGroups = new MaterialGroup[count];
+                        Groups = new MaterialGroup[count];
                         // read each block
                         for (int i = 0; i < count; i++)
                         {
-                            ShaderGroups[i] = binary_reader.ReadDefinition<MaterialGroup>();
+                            Groups[i] = binary_reader.ReadDefinition<MaterialGroup>();
                         }
                         break;
                     #endregion
@@ -270,6 +276,8 @@ namespace Moonfish.Core.Model
             Vertices = ExtractVertices(compression_ranges, coord_raw, coord_size, texcoord_raw, texcoord_size, vector_raw, vector_size);
             return true;
         }
+
+        #region Import Methods
 
         public bool ImportFromWavefront(string filename)
         {
@@ -445,7 +453,7 @@ namespace Moonfish.Core.Model
                 }
             }
             this.Vertices = vertices.ToArray();
-            this.ShaderGroups = new MaterialGroup[strips.Count];
+            this.Groups = new MaterialGroup[strips.Count];
 
             Log.Info("Parsing shader groups from triangle strips...");
             TriangleStrip combined_strip = new TriangleStrip() { Indices = new ushort[0] };
@@ -453,7 +461,7 @@ namespace Moonfish.Core.Model
             for (int i = 0; i < strips.Count; ++i)
             {
                 TriangleStrip.Append(ref combined_strip, strips[i]);
-                this.ShaderGroups[i] = new MaterialGroup(offset, (ushort)(combined_strip.Indices.Length - offset)) { shader_index = (ushort)i };
+                this.Groups[i] = new MaterialGroup(offset, (ushort)(combined_strip.Indices.Length - offset)) { shader_index = (ushort)i };
                 Log.Info(string.Format(@"ShaderGroup[ {0} ] {{ Start = {1}, Length = {2} }}", i, offset, (combined_strip.Indices.Length - offset).ToString()));
                 offset = (ushort)combined_strip.Indices.Length;
 
@@ -476,6 +484,58 @@ namespace Moonfish.Core.Model
             Log.Info("Success, import finished! Returning true from ImportFromWavefront();");
             return true;
         }
+        public void ImportFromCollada(Collada141.COLLADA collada)
+        {
+            var geometries = collada.Items.SingleOrDefault(x => x is Collada141.library_geometries) as Collada141.library_geometries;
+            if (geometries == null) return;
+            ImportGeometry(geometries.geometry[0]);
+        }
+        void ImportGeometry(Collada141.geometry geometry)
+        {
+            var mesh = geometry.Item as Collada141.mesh;
+            if (mesh == null) return;
+            var float_array = mesh.source[0].Item as Collada141.float_array;
+            this.Vertices = new StandardVertex[float_array.Values.Length / 3];
+            for (int i = 0; i < Vertices.Length; i++)
+            {
+                Vertices[i] = new StandardVertex()
+                {
+                    Position = new Vector3(
+                        (float)float_array.Values[i * 3 + 0],
+                        (float)float_array.Values[i * 3 + 1],
+                        (float)float_array.Values[i * 3 + 2]
+                        )
+                };
+            }
+
+            var poly_list = mesh.Items[0] as Collada141.polylist;
+            if (poly_list == null) return;
+            Triangle[] triangles = new Triangle[poly_list.count];
+            var raw_indices = Collada141.COLLADA.ConvertIntArray(poly_list.p);
+            for (int i = 0; i < triangles.Length; i++)
+            {
+                triangles[i] = new Triangle()
+                {
+                    MaterialID = 0,
+                    Vertex1 = (ushort)raw_indices[i * (3 * 2) + (0 * 2)],
+                    Vertex2 = (ushort)raw_indices[i * (3 * 2) + (1 * 2)],
+                    Vertex3 = (ushort)raw_indices[i * (3 * 2) + (2 * 2)],
+                };
+            }
+            List<ushort> triangle_indices = new List<ushort>(triangles.Length * 3);
+            foreach (var triangle in triangles)
+            {
+                triangle_indices.AddRange(triangle.ToArray());
+            }
+            Adjacencies adj = new Adjacencies(triangle_indices.ToArray());
+            this.Indices = adj.GenerateTriangleStrip();
+            this.Groups = new MaterialGroup[] { new MaterialGroup(0, (ushort)Indices.Length) };
+        }
+
+        #endregion
+
+        #region Export Methods
+
         public bool ExportAsWavefront(string filename)
         {
             using (StreamWriter writer = File.CreateText(filename))
@@ -557,7 +617,7 @@ namespace Moonfish.Core.Model
             });
             model.Groups.Add(new model.Group(new DGroup()));                            // Add a default model_group + a default definition
             model.Nodes.Add(new model.Node(new DNode()));                               // Add a default node + default definition
-            for (int i = 0; i < ShaderGroups.Length; i++)
+            for (int i = 0; i < Groups.Length; i++)
             {
                 model.Shaders.Add(new model.Shader(new DShader()));                     // Add a default shader + default definition
             }
@@ -617,6 +677,8 @@ namespace Moonfish.Core.Model
             }
             return false;
         }
+
+        #endregion
 
         private void WriteEntityXmlNodes(XmlWriter xml, IEnumerable<TagBlockField> tagblock, int current_offset, string tagname)
         {
@@ -699,8 +761,8 @@ namespace Moonfish.Core.Model
 
             // * Begin resource_header // size: 112
 
-            Log.Info(string.Format(@"Writing shader_groups_count = {0} @{1}", ShaderGroups.Length, bin.BaseStream.Position));
-            bin.Write(ShaderGroups.Length);         // * 0x00: shader_groups_count;
+            Log.Info(string.Format(@"Writing shader_groups_count = {0} @{1}", Groups.Length, bin.BaseStream.Position));
+            bin.Write(Groups.Length);         // * 0x00: shader_groups_count;
             bin.Write(new byte[28]);                // * 0x08: some unused thing... count.
             Log.Info(string.Format(@"Writing indices_count = {0} @{1}", Indices.Length, bin.BaseStream.Position));
             bin.Write(Indices.Length);              // * 0x20: indices_count;
@@ -714,8 +776,8 @@ namespace Moonfish.Core.Model
             var resource_data_start_offset = bin.BaseStream.Position;   // This is the offset to which all DResource block_offsets are written from
 
             bin.WriteFourCC("rsrc");             // shader_group resource begin
-            resource[0] = new DResource(0, 72, ShaderGroups.Length * 72, (int)(bin.BaseStream.Position - resource_data_start_offset));
-            foreach (var group in ShaderGroups)
+            resource[0] = new DResource(0, 72, Groups.Length * 72, (int)(bin.BaseStream.Position - resource_data_start_offset));
+            foreach (var group in Groups)
                 bin.Write(group);                // shader_group data
 
             bin.WriteFourCC("rsrc");             // indices resource begin
@@ -1043,55 +1105,6 @@ namespace Moonfish.Core.Model
         {
             QuickMeshView render_window = new QuickMeshView(this);
             render_window.Run(60);
-        }
-
-        public void ImportFromCollada(Collada141.COLLADA collada)
-        {
-            var geometries = collada.Items.SingleOrDefault(x => x is Collada141.library_geometries) as Collada141.library_geometries;
-            if (geometries == null) return;
-            ImportGeometry(geometries.geometry[0]);
-        }
-
-        private void ImportGeometry(Collada141.geometry geometry)
-        {
-            var mesh = geometry.Item as Collada141.mesh;
-            if (mesh == null) return;
-            var float_array = mesh.source[0].Item as Collada141.float_array;
-            this.Vertices = new StandardVertex[float_array.Values.Length / 3];
-            for (int i = 0; i < Vertices.Length; i++)
-            {
-                Vertices[i] = new StandardVertex()
-                {
-                    Position = new Vector3(
-                        (float)float_array.Values[i * 3 + 0],
-                        (float)float_array.Values[i * 3 + 1],
-                        (float)float_array.Values[i * 3 + 2]
-                        )
-                };
-            }
-
-            var poly_list = mesh.Items[0] as Collada141.polylist;
-            if (poly_list == null) return;
-            Triangle[] triangles = new Triangle[poly_list.count];
-            var raw_indices = Collada141.COLLADA.ConvertIntArray(poly_list.p);
-            for (int i = 0; i < triangles.Length; i++)
-            {
-                triangles[i] = new Triangle()
-                {
-                    MaterialID = 0,
-                    Vertex1 = (ushort)raw_indices[i * (3 * 2) + (0 * 2)],
-                    Vertex2 = (ushort)raw_indices[i * (3 * 2) + (1 * 2)],
-                    Vertex3 = (ushort)raw_indices[i * (3 * 2) + (2 * 2)],
-                };
-            }
-            List<ushort> triangle_indices = new List<ushort>(triangles.Length * 3);
-            foreach (var triangle in triangles)
-            {
-                triangle_indices.AddRange(triangle.ToArray());
-            }
-            Adjacencies adj = new Adjacencies(triangle_indices.ToArray());
-            this.Indices = adj.GenerateTriangleStrip();
-            this.ShaderGroups = new MaterialGroup[] { new MaterialGroup(0, (ushort)Indices.Length) };
         }
     }
 }

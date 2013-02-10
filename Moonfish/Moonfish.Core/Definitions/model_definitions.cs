@@ -306,6 +306,22 @@ namespace Moonfish.Core.Definitions
         public Vector3 Up = Vector3.UnitZ;
         public Vector3 AbsolutePosition = Vector3.Zero;
 
+        public DNode(DNode copy)
+        {
+            this.Name = copy.Name;
+            this.Parent_NodeIndex = copy.Parent_NodeIndex;
+            this.FirstChild_NodeIndex = copy.FirstChild_NodeIndex;
+            this.NextSibling_NodeIndex = copy.NextSibling_NodeIndex;
+            this.Rotation = copy.Rotation;
+            this.Position = copy.Position;
+            this.Scale = copy.Scale;
+            this.Right = copy.Right;
+            this.Up = copy.Up;
+            this.Forward = copy.Forward;
+            this.AbsolutePosition = copy.AbsolutePosition;
+        }
+        public DNode() { }
+
         byte[] IDefinition.ToArray()
         {
             MemoryStream buffer = new MemoryStream();
@@ -341,7 +357,6 @@ namespace Moonfish.Core.Definitions
             Up = bin.ReadVector3();
             AbsolutePosition = bin.ReadVector3();
         }
-
 
         int IDefinition.Size
         {

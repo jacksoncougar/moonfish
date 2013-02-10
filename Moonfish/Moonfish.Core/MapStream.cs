@@ -33,6 +33,8 @@ namespace Moonfish.Core
         public readonly string[] Strings;
         public readonly Tag[] Tags;
 
+        public readonly int IndexVirtualAddress;
+
         public MapStream(string filename)
             : base(filename, FileMode.Open, FileAccess.Read, FileShare.Read)
         {
@@ -82,6 +84,7 @@ namespace Moonfish.Core
             //INDEX
             this.Seek(indexAddress, SeekOrigin.Begin);
             int tagClassTableVirtualAddress = bin.ReadInt32();
+            this.IndexVirtualAddress = tagClassTableVirtualAddress - 32;
             this.Seek(4, SeekOrigin.Current);
             int tagDatumTableVirtualAddress = bin.ReadInt32();
             int tagDatumTableOffset = tagDatumTableVirtualAddress - tagClassTableVirtualAddress;

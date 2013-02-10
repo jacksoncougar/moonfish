@@ -21,7 +21,8 @@ namespace Moonfish.Debug
             //mesh.ImportFromCollada(collada);
             //mesh.Show();
             var map = new MapStream(@"C:\Users\stem\Documents\shared.map");
-            var tag = map["bitm", "coconut"].Export() as Bitmap_Collection; map.Close();
+            Scanner.Scan(map);
+            //var tag = map["bitm", "coconut"].Export() as Bitmap_Collection; map.Close();
             //Model model = new Model(tag);
             //model.ExportNodesToCollada();
             //model.Show();

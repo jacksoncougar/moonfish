@@ -133,7 +133,7 @@ namespace Moonfish.Core
              * recursively into the stream. */
 
             var start_offset = stream.Position;                                             /* Store the current position in the stream that was passed in.
-                                                                                             * This will be the address we start copying TagBlock data at */   
+                                                                                             * This will be the address we start copying TagBlock data at */
             var block_size = (source as IPointable).SizeOf;                                 // Size of the source TagBlock internal data
             stream.Write(Padding.GetBytes(block_size, 0xCD), 0, block_size);                /* Write padding bytes for debug purposes. This also moves the 
                                                                                              * streams internal position forward so that we are 'reserving' 
@@ -169,6 +169,25 @@ namespace Moonfish.Core
             public override string ToString()
             {
                 return string.Format("{0} : x{1} : {2}", address, count, external);
+            }
+        }
+    }
+
+    public static class Scanner
+    {
+        public static void Scan(MapStream input) {
+            BinaryReader bin = new BinaryReader(input);
+            input.Position = 0;
+            var start_address = input.IndexVirtualAddress;
+            List<object> possible_pointers = new List<object>();
+            for (int i = 0; i < input.Length / 8; i++)
+            {
+                var count = bin.ReadInt32();
+                var address = bin.ReadInt32();
+                if (count > 0 && address > start_address && address < start_address + input.Length)
+                {
+                    possible_pointers.Add(new { Count = count, Address = address });
+                }
             }
         }
     }

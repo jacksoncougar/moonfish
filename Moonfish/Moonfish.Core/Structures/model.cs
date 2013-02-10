@@ -67,7 +67,7 @@ namespace Moonfish.Core
                 public Permutation() : base(16, new TagBlockField(new StringID())) { }
             }
         }
-        public class Section : TagBlock, IRaw
+        public class Section : TagBlock
         {
             public ModelRaw Raw { get { return base.fixed_fields[1].Object as ModelRaw; } }
             public TagBlockList<Resource> Resources { get { return base.fixed_fields[2].Object as TagBlockList<Resource>; } }
@@ -236,9 +236,5 @@ namespace Moonfish.Core
                 }
             }
         }
-    }
-
-    public interface IRaw
-    {
     }
 }

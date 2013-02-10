@@ -40,32 +40,76 @@ namespace Moonfish.Core
 
         public class bitmap : TagBlock
         {
-            public bitmap_resource get_resource()
-            {
-                bitmap_resource resource = new bitmap_resource();
-                BinaryReader binary_reader = new BinaryReader(this.GetMemory());
-                binary_reader.BaseStream.Position = 28;
-                resource.offset0 = binary_reader.ReadInt32();
-                resource.offset1 = binary_reader.ReadInt32();
-                resource.offset2 = binary_reader.ReadInt32();
-                binary_reader.BaseStream.Position += 12;
-                resource.length0 = binary_reader.ReadInt32();
-                resource.length1 = binary_reader.ReadInt32();
-                resource.length2 = binary_reader.ReadInt32();
-                return resource;
-            }
-            public bitmap() : base(116) { }
-            
+            public BitmapRaw Raw { get { return this.fixed_fields[0].Object as BitmapRaw; } }
+            public bitmap()
+                : base(116,
+                    new TagBlockField(null, 28),
+                    new TagBlockField(new BitmapRaw())
+                    ) { }
         }
     }
-
-    public struct bitmap_resource
+    public class BitmapRaw : IField, IResource  
     {
-        public int offset0;
-        public int offset1;
-        public int offset2;
-        public int length0;
-        public int length1;
-        public int length2;
+        IStructure parent;
+
+        int offset0;
+        int offset1;
+        int offset2;
+        int length0;
+        int length1;
+        int length2;
+
+        byte[] data_0;
+        byte[] data_1;
+        byte[] data_2;
+
+        byte[] IField.GetFieldData()
+        {
+            byte[] buffer = new byte[(this as IField).SizeOfField];
+            BitConverter.GetBytes(offset0).CopyTo(buffer, 0);
+            BitConverter.GetBytes(offset1).CopyTo(buffer, 4);
+            BitConverter.GetBytes(offset2).CopyTo(buffer, 8);
+                                                                    // <- the other 3 LODs which are never used.
+            BitConverter.GetBytes(length0).CopyTo(buffer, 24);
+            BitConverter.GetBytes(length1).CopyTo(buffer, 28);
+            BitConverter.GetBytes(length2).CopyTo(buffer, 32);
+            return buffer;
+        }
+
+        void IField.SetFieldData(byte[] field_data, IStructure caller)
+        {
+            offset0 = BitConverter.ToInt32(field_data, 0);
+            offset1 = BitConverter.ToInt32(field_data, 4);
+            offset2 = BitConverter.ToInt32(field_data, 8);
+                                                                // <- the other 3 LODs which are never used.
+            length0 = BitConverter.ToInt32(field_data, 24);
+            length1 = BitConverter.ToInt32(field_data, 28);
+            length2 = BitConverter.ToInt32(field_data, 32);
+        }
+
+        int IField.SizeOfField
+        {
+            get { return 36; }
+        }
+
+        void IField.Initialize(IStructure calling_structure)
+        {
+            this.parent = calling_structure;
+        }
+
+        void IResource.CopyFrom(Stream map)
+        {
+            map.Position = offset0;             // move the stream to the data position
+            data_0 = new byte[length0];         // initialize the buffer to hold bitmap data
+            map.Read(data_0, 0, length0);       // copy bytes form stream into buffer
+
+            map.Position = offset1;             // move the stream to the data position
+            data_1 = new byte[length1];         // initialize the buffer to hold bitmap data
+            map.Read(data_1, 0, length1);       // copy bytes form stream into buffer
+
+            map.Position = offset2;             // move the stream to the data position
+            data_2 = new byte[length2];         // initialize the buffer to hold bitmap data
+            map.Read(data_2, 0, length2);       // copy bytes form stream into buffer
+        }
     }
 }

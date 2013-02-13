@@ -22,8 +22,9 @@ namespace Moonfish.Core.Model
     }
 
     /// <summary>
-    /// A one/third vector where each componant is composed of 11 or 10 bits
-    /// A single bit for sign, and the remainder used for magnitude (domain = {0.0 => 1.0} )
+    /// A one-third vector where each componant is restricted to the range of:  { x | 0.0 <= x <= 1.0 }
+    /// Each combonent is stored as a 10 or 11 bit value: of which a single bit is reserved for sign, 
+    /// and the remainder used for the magnitude.
     /// </summary>
     public struct Vector3t
     {

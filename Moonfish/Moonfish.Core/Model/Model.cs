@@ -29,6 +29,7 @@ namespace Moonfish.Core.Model
             for (int i = 0; i < Mesh.Length; ++i)
             {
                 Mesh[i] = new Core.Model.Mesh();
+                Mesh[i].Name = string.Format("{0}_{1}", "default", i);
                 Mesh[i].Load(Tag.Sections[i].Raw, Tag.Sections[i].Resources, Tag.Compression[0]);
             }
             Nodes = Tag.Nodes.Select(x => x.GetDefinition<DNode>()).ToArray();
@@ -44,6 +45,27 @@ namespace Moonfish.Core.Model
 
         Vector3 center_ = Vector3.Zero;
         public OpenTK.Vector3 Center { get; set; }
+
+        Collada141.COLLADA GenerateCOLLADA()
+        {
+            Collada141.COLLADA collada = new Collada141.COLLADA();
+            collada.version = Collada141.VersionType.Item141;
+            collada.asset = new Collada141.asset()
+            {
+                contributor = new Collada141.assetContributor[] { 
+                    new Collada141.assetContributor() { author = "", authoring_tool = "Moonfish 2013" }},
+                created = DateTime.Now,
+                modified = DateTime.Now,
+                up_axis = Collada141.UpAxisType.Y_UP,
+                unit = new Collada141.assetUnit() { meter = 1, name = "meter" }
+            }; 
+
+            collada.scene = new Collada141.COLLADAScene()
+            {
+                instance_visual_scene = new Collada141.InstanceWithExtra() { url = "#Scene" }
+            };
+            return collada;
+        }
 
         public bool ExportNodesToCollada()
         {
@@ -83,6 +105,46 @@ namespace Moonfish.Core.Model
         {
             Collada141.COLLADA collada = Collada141.COLLADA.Load(@"D:\halo_2\single_bone.dae");
             return false;
+        }
+
+        public void ExportToCOLLADA()
+        {
+            var COLLADA = GenerateCOLLADA();
+            var geometry = new List<Collada141.geometry>(this.Regions.Length);
+            foreach (var region in this.Regions)
+            {
+                geometry.Add(Mesh[region.Permutations[0].HighLOD].ExportAsCOLLADAGeometry());
+            }
+            var visual_scenes = new Collada141.library_visual_scenes();
+
+            visual_scenes.visual_scene = new Collada141.visual_scene[]
+            {
+                new Collada141.visual_scene()
+            };
+            var instances = new List<Collada141.instance_geometry>();
+            foreach (var g in geometry)
+            {
+                var new_instance =new Collada141.instance_geometry()
+                {
+                    url = string.Format("#{0}", g.id)
+                };                
+            }
+            visual_scenes.visual_scene[0].node = new Collada141.node[]
+            {
+                new Collada141.node()
+                {
+                    instance_geometry = instances.ToArray(),
+                }
+            };
+
+            COLLADA.Items = new object[] {
+                new Collada141.library_geometries
+                { 
+                    geometry = geometry.ToArray(),
+                },
+                visual_scenes,
+            };
+            COLLADA.Save(@"D:\debug_mesh.dae");
         }
 
         private Collada141.node[] GenerateColladaNodes()

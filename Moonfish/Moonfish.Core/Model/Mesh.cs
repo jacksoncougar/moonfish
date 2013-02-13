@@ -19,6 +19,7 @@ namespace Moonfish.Core.Model
 {
     public class Mesh
     {
+        public string Name = "default";
         public ushort[] Indices;
         public StandardVertex[] Vertices;
         public ushort[] VertexBoneIndices;
@@ -578,6 +579,131 @@ namespace Moonfish.Core.Model
             }
             return true;
         }
+        public Collada141.geometry ExportAsCOLLADAGeometry()
+        {
+            string base_id = string.Format("{0}-{1}", this.Name, "mesh");
+            var source = new Collada141.source[]
+            {
+                CreateVector3Source(this.Vertices.Select(x=>x.Position), base_id, "positions"),
+                //CreateVector3Source(this.Vertices.Select(x=>x.Normal), base_id, "normals"),
+            };
+            var vertices = new Collada141.vertices()
+            {
+                id = string.Format("{0}-{1}", base_id, "vertices"),
+                input = new Collada141.InputLocal[]
+                {
+                    new Collada141.InputLocal() 
+                    {                        
+                        semantic = "POSITION", 
+                        source = string.Format("#{0}", source[0].id)
+                    }
+                }
+            };
+            var triangles = GenerateTriangleFromStrip();
+            var value = string.Join(" ", triangles.Select(x => string.Format("{0} {1} {2}", x.Vertex1, x.Vertex2, x.Vertex3)));
+            StringBuilder vcount = new StringBuilder();
+            foreach (var triangle in triangles)
+                vcount.Append("3 ");
+            var triangle_list = new Collada141.polylist()
+            {
+                p = value,
+                vcount = vcount.ToString(),
+                count = (ulong)triangles.Length,
+                input = new Collada141.InputLocalOffset[] 
+                { 
+                    new Collada141.InputLocalOffset() 
+                    {
+                        semantic = "VERTEX",
+                        offset = 0,
+                        source = string.Format("#{0}", vertices.id)
+                    }
+                },
+            };
+            var mesh = new Collada141.mesh()
+            {
+                source = source,
+                vertices = vertices,
+                Items = new object[] { triangle_list },
+            };
+            return new Collada141.geometry() 
+            { 
+                id = base_id,
+                Item = mesh 
+            };
+        }
+
+        private Triangle[] GenerateTriangleFromStrip()
+        {
+            List<Triangle> triangles = new List<Triangle>();
+            bool winding = false;
+            for (int i = 0; i < this.Indices.Length - 2; i++)
+            {
+                winding = !winding;
+                if (IsDegenerate(this.Indices[i + 0], this.Indices[i + 1], this.Indices[i + 2])) continue;
+                triangles.Add(new Triangle()
+                {
+                    Vertex1 = this.Indices[i + 0],
+                    Vertex2 = winding ? this.Indices[i + 1] : this.Indices[i + 2],
+                    Vertex3 = winding ? this.Indices[i + 2] : this.Indices[i + 1],
+                });
+            }
+            return triangles.ToArray();
+        }
+
+        private Collada141.source CreateVector3Source(IEnumerable<Vector3> source_vectors, string source_id, string source_type)
+        {
+            double[] float_array_data = new double[source_vectors.Count() * 3];
+            {
+                int i = 0;
+                foreach (var vector in source_vectors)
+                {
+                    float_array_data[(i * 3) + 0] = vector.X;
+                    float_array_data[(i * 3) + 1] = vector.Y;
+                    float_array_data[(i * 3) + 2] = vector.Z;
+                    ++i;
+                }
+            }
+
+            Collada141.source source = new Collada141.source()
+            {
+                id = string.Format("{0}-{1}", source_id, source_type),
+                Item = new Collada141.float_array()
+                {
+                    count = (ulong)float_array_data.Length,
+                    id = string.Format("{0}-{1}-{2}", source_id, source_type, "array"),
+                    Values = float_array_data,
+                },
+                technique_common = new Collada141.sourceTechnique_common()
+                {
+                    accessor = new Collada141.accessor()
+                    {
+                        count = (ulong)float_array_data.Length / 3,
+                        stride = 3,
+                        source = string.Format("#{0}-{1}-{2}", source_id, source_type, "array"),
+                        param = new Collada141.param[]
+                        {
+                            new Collada141.param()
+                            {
+                                name = "X",
+                                type = "float",
+                            },
+                            new Collada141.param()
+                            {
+                                name = "Y",
+                                type = "float",
+                            },
+                            new Collada141.param()
+                            {
+                                name = "Z",
+                                type = "float",
+                            },
+                        },
+                    },
+                },
+            };
+            return source;
+        }
+
         public bool ExportForEntity(string desination_folder, string tagname)
         {
             model model = new model();                                                  // Make TagStructure object to hold our model definition data

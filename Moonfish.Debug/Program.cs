@@ -23,7 +23,7 @@ namespace Moonfish.Debug
             var map = new MapStream(@"C:\Users\stem\Documents\shared.map");
             var tag = map["mode", "warthog"].Export() as model; map.Close();
             Model model = new Model(tag);
-            model.ExportNodesToCollada();
+            model.ExportToCOLLADA();
             //model.Show();
             return;
         }

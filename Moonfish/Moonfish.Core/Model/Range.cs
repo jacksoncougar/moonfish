@@ -17,6 +17,11 @@ namespace Moonfish.Core.Model
             this.max = max1;
         }
 
+        public override string ToString()
+        {
+            return string.Format("{0}:{1}", min, max);
+        }
+
         internal static Range Include(Range x, float p)
         {
             float min = x.min;

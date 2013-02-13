@@ -160,6 +160,22 @@ namespace Moonfish.Core
             set { }
         }
 
+        public bool GetResource(int address, int length, out byte[] resource)
+        {
+            if (address > 2048 && address < this.Length)
+            {
+                this.Position = address;
+                resource = new byte[length];
+                this.Read(resource, 0, length);
+                return true;
+            }
+            else
+            {
+                resource = new byte[0];
+                return false;
+            }
+        }
+
         public override long Position
         {
             get

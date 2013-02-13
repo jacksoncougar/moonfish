@@ -97,19 +97,11 @@ namespace Moonfish.Core
             this.parent = calling_structure;
         }
 
-        void IResource.CopyFrom(Stream map)
+        void IResource.CopyFrom(Stream input)
         {
-            map.Position = offset0;             // move the stream to the data position
-            data_0 = new byte[length0];         // initialize the buffer to hold bitmap data
-            map.Read(data_0, 0, length0);       // copy bytes form stream into buffer
-
-            map.Position = offset1;             // move the stream to the data position
-            data_1 = new byte[length1];         // initialize the buffer to hold bitmap data
-            map.Read(data_1, 0, length1);       // copy bytes form stream into buffer
-
-            map.Position = offset2;             // move the stream to the data position
-            data_2 = new byte[length2];         // initialize the buffer to hold bitmap data
-            map.Read(data_2, 0, length2);       // copy bytes form stream into buffer
+            input.CopyResource(offset0, length0, out data_0);
+            input.CopyResource(offset1, length1, out data_1);
+            input.CopyResource(offset2, length2, out data_2);
         }
     }
 }

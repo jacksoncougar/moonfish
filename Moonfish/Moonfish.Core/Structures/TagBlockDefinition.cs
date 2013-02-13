@@ -314,11 +314,10 @@ namespace Moonfish.Core
             get { return 16; }
         }
 
-        void IResource.CopyFrom(Stream map)
+        void IResource.CopyFrom(Stream input)
         {
-            map.Position = base.first_element_address_;
-            byte[] buffer = new byte[base.count_];
-            map.Read(buffer, 0, buffer.Length);
+            byte[] buffer;
+            input.CopyResource(base.first_element_address_, base.count_, out buffer);
             this.AddRange(buffer);
         }
     }

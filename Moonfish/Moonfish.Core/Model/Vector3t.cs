@@ -29,6 +29,7 @@ namespace Moonfish.Core.Model
     {
         const float z_max_inverse = 1 / (float)0x1FF;
         const float xy_max_inverse = 1 / (float)0x3FF;
+
         private uint bits;
 
         public float X

@@ -13,8 +13,6 @@ namespace Moonfish.Core
         public TagBlockList<MarkerGroup> MarkerGroups { get { return this.fixed_fields[7].Object as TagBlockList<MarkerGroup>; } }
         public TagBlockList<Shader> Shaders { get { return this.fixed_fields[8].Object as TagBlockList<Shader>; } }
 
-        public CompressionRanges GetBoundingBox() { return (this.fixed_fields[1].Object as TagBlockList<CompressionRanges>)[0]; }
-
         public model()
             : base(132, new TagBlockField[]{
             new TagBlockField(new StringID()),

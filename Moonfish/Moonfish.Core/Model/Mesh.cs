@@ -21,6 +21,7 @@ namespace Moonfish.Core.Model
     {
         public ushort[] Indices;
         public StandardVertex[] Vertices;
+        public ushort[] VertexBoneIndices;
         public MaterialGroup[] Groups;
         public CompressionInformation Compression;
 
@@ -924,12 +925,14 @@ namespace Moonfish.Core.Model
         {
             int vertex_count = coord_raw.Length / coord_size;
             StandardVertex[] vertices = new StandardVertex[vertex_count];
+            this.VertexBoneIndices = new ushort[vertex_count];
             for (int i = 0; i < vertex_count; ++i)
             {
                 Vector3 position = new Vector3(
                     BitConverter.ToInt16(coord_raw, i * coord_size),
                     BitConverter.ToInt16(coord_raw, (i * coord_size) + 2),
                     BitConverter.ToInt16(coord_raw, (i * coord_size) + 4));
+                if (coord_size == 8) this.VertexBoneIndices[i] = BitConverter.ToUInt16(coord_raw, (i * coord_size) + 6);
                 position.X = Inflate(position.X, compression_ranges.X);
                 position.Y = Inflate(position.Y, compression_ranges.Y);
                 position.Z = Inflate(position.Z, compression_ranges.Z);

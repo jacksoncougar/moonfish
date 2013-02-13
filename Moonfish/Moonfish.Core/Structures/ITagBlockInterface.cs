@@ -10,8 +10,4 @@ namespace Moonfish.Core
         void CopyFrom(Stream source);
         int Size { get; }
     }
-    public interface IResource
-    {
-        void CopyFrom(Stream map);
-    }
 }

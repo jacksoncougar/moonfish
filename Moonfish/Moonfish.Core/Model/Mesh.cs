@@ -22,7 +22,8 @@ namespace Moonfish.Core.Model
         public string Name = "default";
         public ushort[] Indices;
         public StandardVertex[] Vertices;
-        public ushort[] VertexBoneIndices;
+        public VertexWeight[] VertexWeights;
+        public byte[] Nodes;
         public MaterialGroup[] Groups;
         public CompressionInformation Compression;
 
@@ -266,6 +267,9 @@ namespace Moonfish.Core.Model
                         }
                         break;
                     #endregion
+                    case 100:
+                        Nodes = binary_reader.ReadBytes(count);
+                        break;
                 }
             }
             var vertex_resources = raw_resources.Where(x => x.first_ == 2).ToArray();
@@ -1046,19 +1050,49 @@ namespace Moonfish.Core.Model
             return (ref0 == ref1 || ref0 == ref2 || ref1 == ref2);
         }
 
+        /// <summary>
+        /// Baaaaaaaad
+        /// </summary>
+        /// <param name="compression_ranges"></param>
+        /// <param name="coord_raw"></param>
+        /// <param name="coord_size"></param>
+        /// <param name="texcoord_raw"></param>
+        /// <param name="texcoord_size"></param>
+        /// <param name="vector_raw"></param>
+        /// <param name="vector_size"></param>
+        /// <returns></returns>
         private StandardVertex[] ExtractVertices(DCompressionRanges compression_ranges, byte[] coord_raw, int coord_size,
             byte[] texcoord_raw, int texcoord_size, byte[] vector_raw, int vector_size)
         {
             int vertex_count = coord_raw.Length / coord_size;
             StandardVertex[] vertices = new StandardVertex[vertex_count];
-            this.VertexBoneIndices = new ushort[vertex_count];
+            VertexWeights = new VertexWeight[vertex_count];
             for (int i = 0; i < vertex_count; ++i)
             {
                 Vector3 position = new Vector3(
                     BitConverter.ToInt16(coord_raw, i * coord_size),
                     BitConverter.ToInt16(coord_raw, (i * coord_size) + 2),
                     BitConverter.ToInt16(coord_raw, (i * coord_size) + 4));
-                if (coord_size == 8) this.VertexBoneIndices[i] = BitConverter.ToUInt16(coord_raw, (i * coord_size) + 6);
+                //  if.. there are bone indices load them
+                if (coord_size == 8)
+                {
+                    VertexWeights[i] = new VertexWeight(coord_raw[(i * coord_size) + 6]);
+                }
+                if (coord_size == 12)
+                {
+                    var bone0 = coord_raw[(i * coord_size) + 6];
+                    var bone1 = coord_raw[(i * coord_size) + 7];
+                    var weight0 = (float)coord_raw[(i * coord_size) + 9] / (float)byte.MaxValue;
+                    var weight1 = (float)coord_raw[(i * coord_size) + 10] / (float)byte.MaxValue;
+                    VertexWeights[i] = new VertexWeight() 
+                    { 
+                        Bone0 = bone0, 
+                        Bone1 = bone1,
+                        Bone0_weight = weight0, 
+                        Bone1_weight = weight1 
+                    };
+                }
+
                 position.X = Inflate(position.X, compression_ranges.X);
                 position.Y = Inflate(position.Y, compression_ranges.Y);
                 position.Z = Inflate(position.Z, compression_ranges.Z);

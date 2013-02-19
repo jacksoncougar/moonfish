@@ -85,7 +85,7 @@ namespace Moonfish.Core.Model
 
             GL.Enable(EnableCap.Lighting);
             GL.Enable(EnableCap.Light0);
-            float[] lightPose1 = { -4f, 7.0f, 6.0f, 1.0f };
+            float[] lightPose1 = { -4f, -4.0f, -4.0f, 1.0f };
             float[] lightColor1 = { 0.4f, 0.32f, 1f, 0.0f };
             GL.Light(LightName.Light0, LightParameter.Diffuse, lightColor1);
             GL.Light(LightName.Light0, LightParameter.Position, lightPose1);
@@ -127,10 +127,30 @@ namespace Moonfish.Core.Model
             foreach (var region in model.Regions)
             {
                 RenderMesh(region.Permutations[0].HighLOD);
+                RenderEdges(region.Permutations[0].HighLOD);
             }
             RenderNodes();
             GL.PopMatrix();
             SwapBuffers();
+        }
+
+        private void RenderEdges(short p)
+        {
+            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 14 * model.Mesh[p].Vertices.Length), model.Mesh[p].Vertices, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(sizeof(ushort) * model.Mesh[p].Indices.Length), model.Mesh[p].Indices, BufferUsageHint.StaticDraw);
+
+            GL.Color4(Color4.GreenYellow);
+            GL.Disable(EnableCap.Lighting);
+            GL.Disable(EnableCap.DepthTest);
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line); 
+            foreach (var group in model.Mesh[p].Groups)
+            {
+                GL.DrawElements(BeginMode.TriangleStrip, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);
+            }
+
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
+            GL.Enable(EnableCap.Lighting);
+            GL.Enable(EnableCap.DepthTest);
         }
 
         private void RenderNodes()

@@ -20,10 +20,15 @@ namespace Moonfish.Debug
             //Mesh mesh = new Mesh();
             //mesh.ImportFromCollada(collada);
             //mesh.Show();
+
             var map = new MapStream(@"C:\Users\stem\Documents\shared.map");
-            var tag = map["mode", "warthog"].Export() as model; map.Close();
+            var tag = map["mode", "dervish"].Export() as model; map.Close();
             Model model = new Model(tag);
-            model.ExportToCOLLADA();
+            //using (var file = File.Create(@"D:\model_raw.bin"))
+            //{
+            //    file.Write(tag.Sections[3].Raw.ToArray(), 0, tag.Sections[3].Raw.Count);
+            //}
+            //model.ExportToCOLLADA();
             //model.Show();
             return;
         }

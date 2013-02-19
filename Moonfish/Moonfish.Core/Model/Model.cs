@@ -110,11 +110,13 @@ namespace Moonfish.Core.Model
         public void ExportToCOLLADA()
         {
             var COLLADA = GenerateCOLLADA();
+
             var geometry = new List<Collada141.geometry>(this.Regions.Length);
             foreach (var region in this.Regions)
             {
                 geometry.Add(Mesh[region.Permutations[0].HighLOD].ExportAsCOLLADAGeometry());
             }
+
             var visual_scenes = new Collada141.library_visual_scenes();
 
             visual_scenes.visual_scene = new Collada141.visual_scene[]
@@ -127,7 +129,8 @@ namespace Moonfish.Core.Model
                 var new_instance =new Collada141.instance_geometry()
                 {
                     url = string.Format("#{0}", g.id)
-                };                
+                };
+                instances.Add(new_instance);
             }
             visual_scenes.visual_scene[0].node = new Collada141.node[]
             {

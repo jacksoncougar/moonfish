@@ -37,9 +37,10 @@ namespace Moonfish.Core
             {
                 if (!type.IsNested && type.BaseType == typeof(TagBlock))
                 {
+                    if(type.GetCustomAttributes(typeof(TagClassAttribute), false).Length > 0){
                     TagClass class_of_tag = (type.GetCustomAttributes(typeof(TagClassAttribute), false)[0] as TagClassAttribute).Tag_Class;
                     halo_2_classes.Add(class_of_tag, type);
-                }
+                }}
             }
         }
 

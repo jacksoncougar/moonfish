@@ -1,4 +1,5 @@
 ﻿using Moonfish.Core.Definitions;
+using Moonfish.Core.Structures;
 using System.IO;
 namespace Moonfish.Core
 {
@@ -91,22 +92,7 @@ namespace Moonfish.Core
             public class tagblock1_0 : TagBlock
             {
                 public tagblock1_0() : base(88) { }
-            }
-            public class Resource : TagBlock
-            {
-                public Resource() : base(16) { }
-
-                public Resource(DResource dResource)
-                    : this()
-                {
-                    this.SetDefinitionData(dResource);
-                }
-
-                public static explicit operator DResource(Resource resource)
-                {
-                    return resource.GetDefinition<DResource>();
-                }
-            }
+            }            
         }
         public class tagblock0_3 : TagBlock
         {

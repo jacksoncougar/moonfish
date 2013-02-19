@@ -168,7 +168,8 @@ namespace StarterKit
         {
             base.OnUpdateFrame(e);
 
-            Matrix4 modelview = Matrix4.LookAt(new Vector3(Zoom, 0f, 1f), Vector3.Zero, Vector3.UnitZ);
+            GL.Translate(new Vector3(-10, 0, 1));
+            Matrix4 modelview = Matrix4.LookAt(new Vector3(Zoom, 0, 1), Vector3.Zero, Vector3.UnitZ);
             GL.MatrixMode(MatrixMode.Modelview);
             GL.LoadMatrix(ref modelview);
 
@@ -208,10 +209,10 @@ namespace StarterKit
 
             GL.PushMatrix();
 
-            GL.Scale(10, 10, 10);
-            var rot = Yaw;
-            GL.Rotate(rot, Vector3.UnitZ);
-            GL.Rotate(-rot, Vector3.UnitY);
+            GL.Scale(0.5f, 0.5f, 0.5f);
+            //var rot = Yaw;
+            //GL.Rotate(rot, Vector3.UnitZ);
+            //GL.Rotate(-rot, Vector3.UnitY);
 
             if (draw_strip)
             {
@@ -221,20 +222,21 @@ namespace StarterKit
                 GL.End();
                 GL.Enable(EnableCap.Lighting);
                 GL.Color4(Color4.LawnGreen);
+                GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill);
                 GL.DrawArrays(BeginMode.Points, 0, mesh.Vertices.Length);
                 foreach (var group in mesh.Groups)
                 {
                     GL.Color4(Color4.Wheat);
-                    GL.DrawElements(BeginMode.TriangleStrip, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);
+                    GL.DrawElements(BeginMode.Triangles, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);
                 }
                 GL.Color4(new Color4(0x11, 0x11, 0x11, 0xFF));
-                GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
+                GL.PolygonMode(MaterialFace.Front, PolygonMode.Line);
                 foreach (var group in mesh.Groups)
                 {
                     GL.Color4(0x33,0x33,0x33,0xFF);
-                    GL.DrawElements(BeginMode.TriangleStrip, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);
+                    GL.DrawElements(BeginMode.Triangles, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);
                 }
-                GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
+                GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill);
             
                 GL.Disable(EnableCap.Lighting);
                 for (uint i = 0; i < SelectedStrip; i++)
@@ -244,15 +246,15 @@ namespace StarterKit
                     {
                         GL.Color4(Color4.Green);
                         GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position);
-                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position + (Vector3)mesh.Vertices[strips[i].indices[j]].Normal * 0.001f); 
+                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position + (Vector3)mesh.Vertices[strips[i].indices[j]].Normal * 1f); 
 
                         GL.Color4(Color4.Red);
                         GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position);
-                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position + (Vector3)mesh.Vertices[strips[i].indices[j]].Tangent * 0.001f); 
+                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position + (Vector3)mesh.Vertices[strips[i].indices[j]].Tangent * 1f); 
                        
                         GL.Color4(Color4.Blue); 
                         GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position);
-                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position + (Vector3)mesh.Vertices[strips[i].indices[j]].Bitangent * 0.001f);
+                        GL.Vertex3(mesh.Vertices[strips[i].indices[j]].Position + (Vector3)mesh.Vertices[strips[i].indices[j]].Bitangent * 1f);
                         
                     }
                     GL.End();

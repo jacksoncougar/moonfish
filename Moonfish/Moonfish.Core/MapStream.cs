@@ -35,9 +35,12 @@ namespace Moonfish.Core
 
         public readonly int IndexVirtualAddress;
 
+        public readonly MemoryMappedAddress[] MemoryBlocks;
+
         public MapStream(string filename)
             : base(filename, FileMode.Open, FileAccess.Read, FileShare.Read)
         {
+            this.MemoryBlocks = new MemoryMappedAddress[2];
             //HEADER
             BinaryReader bin = new BinaryReader(this, Encoding.UTF8);
 
@@ -50,8 +53,9 @@ namespace Moonfish.Core
 
             int indexAddress = bin.ReadInt32();
             int indexLength = bin.ReadInt32();
+            int tagCacheLength = bin.ReadInt32();
 
-            this.Seek(336, SeekOrigin.Current);
+            this.Seek(332, SeekOrigin.Current);
 
             int stringTableLength = bin.ReadInt32();
             this.Seek(4, SeekOrigin.Current);
@@ -106,10 +110,54 @@ namespace Moonfish.Core
                 {
                     SecondaryMagic = Tags[0].VirtualAddress - (indexAddress + indexLength);
                 }
-                Tags[i].Offset = Tags[i].VirtualAddress == 0 ? 0 : Tags[i].VirtualAddress - SecondaryMagic;
                 Tags[i].Path = Paths[i];
             }
 
+            this.MemoryBlocks[1] = new MemoryMappedAddress()
+            {
+                Address = Tags[0].VirtualAddress,
+                Length = tagCacheLength,
+                Magic = SecondaryMagic,
+            };
+
+            /* Intent: read the sbsp and lightmap address and lengths from the scenario tag 
+             * and store them in the Tags array.
+             */
+            this.Seek(Tags[3].VirtualAddress - SecondaryMagic + 528, SeekOrigin.Begin);
+            var count = bin.ReadInt32();
+            var address = bin.ReadInt32();
+            for (int i = 0; i < count; ++i)
+            {
+                this.Seek(address - SecondaryMagic + i * 68, SeekOrigin.Begin);
+                var sbsp_offset = bin.ReadInt32();
+                var sbsp_length = bin.ReadInt32();
+                var sbsp_virtual_address = bin.ReadInt32();
+                if (i == 0)
+                {
+                    this.PrimaryMagic = sbsp_virtual_address - sbsp_offset;
+                    this.MemoryBlocks[0].Address = sbsp_virtual_address;
+                    this.MemoryBlocks[0].Magic = this.PrimaryMagic;
+                }
+                this.MemoryBlocks[0].Length += sbsp_length;
+
+                Seek(8, SeekOrigin.Current);
+                var sbsp_identifier = bin.ReadTagID();
+                Seek(4, SeekOrigin.Current);
+                var ltmp_identifier = bin.ReadTagID();
+
+                var ltmp_offset = bin.ReadInt32();
+                var ltmp_length = sbsp_offset + sbsp_length - ltmp_offset;
+
+                Tags[sbsp_identifier.Index].VirtualAddress = sbsp_virtual_address;
+                Tags[sbsp_identifier.Index].Length = sbsp_length - ltmp_length;
+
+                if (ltmp_identifier != TagIdentifier.null_identifier)
+                {
+                    Tags[ltmp_identifier.Index].VirtualAddress = sbsp_virtual_address + ltmp_offset;
+                    Tags[ltmp_identifier.Index].Length = ltmp_length;
+                }
+            }
+            
             //UNICODE
             this.Seek(Tags[0].VirtualAddress - SecondaryMagic + 400, SeekOrigin.Begin);
             int unicodeCount = bin.ReadInt32();
@@ -187,7 +235,8 @@ namespace Moonfish.Core
                 // Is this value a memory_pointer? If so we need to convert it to a file_pointer:
                 if (value < 0)
                 {
-                    base.Position = (int)value - SecondaryMagic;
+
+                    base.Position = PointerToOffset((int)value);
                     return;
                 }
                 else
@@ -196,6 +245,16 @@ namespace Moonfish.Core
                     return;
                 }
             }
+        }
+
+        private int PointerToOffset(int value)
+        {
+            int offset = 0;
+            foreach (var block in this.MemoryBlocks)
+            {
+                if (block.GetOffset(out offset, value)) return offset;
+            }
+            throw new InvalidOperationException();
         }
 
         Tag GetOwner(int memory_address)
@@ -331,6 +390,26 @@ namespace Moonfish.Core
         }
     }
 
+    public struct MemoryMappedAddress
+    {
+        public int Address;
+        public int Length;
+        public int Magic;
+
+        bool Contains(int address)
+        {
+            return address >= Address && address < Address + Length;
+        }
+
+        public bool GetOffset(out int offset, int address)
+        {
+            offset = 0;
+            if (!this.Contains(address)) return false;
+            offset = address - Magic;
+            return true;
+        }
+    }
+
     public interface IMap
     {
         /// <summary>
@@ -350,7 +429,6 @@ namespace Moonfish.Core
         public string Path;
         public TagIdentifier Identifier;
         public int VirtualAddress;
-        public int Offset;
         public int Length;
 
         internal bool Contains(int address)

@@ -5,6 +5,7 @@ using System.IO;
 using System.Drawing;
 using System.Windows.Forms;
 using System;
+using System.Linq;
 using Moonfish.Core.Definitions;
 
 namespace Moonfish.Debug
@@ -21,12 +22,15 @@ namespace Moonfish.Debug
             //mesh.ImportFromCollada(collada);
             //mesh.Show();
 
-            var map = new MapStream(@"C:\Users\stem\Documents\shared.map");
-            var tag = map["mode", "dervish"].Export() as model; map.Close();
-            Model model = new Model(tag);
-            //using (var file = File.Create(@"D:\model_raw.bin"))
+            var map = new MapStream(@"C:\Users\stem\Documents\headlong.map");
+            var tag = map["sbsp", ""].Export() as binary_seperation_plane_structure; map.Close();
+            Mesh m = new Mesh();
+            m.Load(tag.DetailObjects[0]);
+            m.Show();
+            //Model model = new Model(tag);
+            //using (var file = File.Create(@"D:\model_raw7.bin"))
             //{
-            //    file.Write(tag.Sections[3].Raw.ToArray(), 0, tag.Sections[3].Raw.Count);
+            //    file.Write(tag.DetailObjects[0].Raw.ToArray(), 0, tag.DetailObjects[0].Raw.Count);
             //}
             //model.ExportToCOLLADA();
             //model.Show();

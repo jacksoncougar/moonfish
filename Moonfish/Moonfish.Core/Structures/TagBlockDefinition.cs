@@ -288,8 +288,8 @@ namespace Moonfish.Core
 
     public class ModelRaw : FixedArray<byte>, IField, IResource
     {
-        int HeaderSize { get; set; }
-        int ResourceDataLength { get; set; }
+        public int HeaderSize { get; set; }
+        public int ResourceDataLength { get; set; }
 
         byte[] IField.GetFieldData()
         {

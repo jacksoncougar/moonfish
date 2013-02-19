@@ -11,7 +11,7 @@ namespace Moonfish.Core
         void CopyFrom(Stream input);
     }
 
-    public static class Resource
+    public static class ResourceExtensions
     {
         public static bool CopyResource(this Stream source, int address, int length, out byte[] data)
         {

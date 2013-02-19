@@ -57,6 +57,7 @@
   <ItemGroup>
     <Compile Include="GlobalStrings.cs" />
     <Compile Include="IResource.cs" />
+    <Compile Include="Model\Camera.cs" />
     <Compile Include="Model\collada_schema_1_4.cs" />
     <Compile Include="Model\Model.cs" />
     <Compile Include="Model\ModelView.cs" />

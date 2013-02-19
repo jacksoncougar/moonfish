@@ -19,6 +19,7 @@ namespace Moonfish.Core.Model
 {
     public class Mesh
     {
+        public BeginMode PrimitiveType;
         public string Name = "default";
         public ushort[] Indices;
         public StandardVertex[] Vertices;
@@ -201,11 +202,13 @@ namespace Moonfish.Core.Model
         /// <returns></returns>
         public bool Load(ModelRaw raw_data, IEnumerable<Moonfish.Core.Structures.Resource> resources, model.CompressionRanges compression_ranges)
         {
+            PrimitiveType = BeginMode.TriangleStrip;
             return Load(raw_data.ToArray(), resources.Select(x => x.GetDefinition<DResource>()), compression_ranges.GetDefinition<DCompressionRanges>(), raw_data.HeaderSize);
         }
 
         public bool Load(binary_seperation_plane_structure.detail_object detail_object)
         {
+            PrimitiveType = BeginMode.Triangles;
             return Load(detail_object.Raw.ToArray(), detail_object.Resources.Select(
                 x => x.GetDefinition<DResource>()), new DCompressionRanges(), detail_object.Raw.HeaderSize);
         }
@@ -223,6 +226,10 @@ namespace Moonfish.Core.Model
             int coord_size = 0;
             int texcoord_size = 0;
             int vector_size = 0;
+
+            int[] sizes = new int[0];
+            VertexResource[] types = new VertexResource[0];
+
             VertexResource coordinate_type = VertexResource.none;
             VertexResource texture_coordinate_type = VertexResource.none;
 
@@ -231,7 +238,7 @@ namespace Moonfish.Core.Model
             BinaryReader binary_reader = new BinaryReader(stream);
             foreach (var resource in raw_resources)
             {
-                //if (resource.first_ != 0) continue;//skip the vertex resources
+                if (resource.first_ != 0) continue;//skip the vertex resources
                 //get the header_value (which is  count  of blocks for this resource)...
                 int count = BitConverter.ToInt32(raw_data, 8 + resource.header_address);
                 // move stream to start of resource data
@@ -265,21 +272,13 @@ namespace Moonfish.Core.Model
                         switch (resource.first_)
                         {
                             case 0:
+                                sizes = new int[count];
+                                types = new VertexResource[count];
                                 for (int i = 0; i < count; i++)
                                 {
                                     byte[] buffer = binary_reader.ReadBytes(resource.data_size__or__first_index);
-                                    if (i == 0)
-                                    {
-                                        coordinate_type = (VertexResource)buffer[0];
-                                        coord_size = buffer[1];
-                                    }
-                                    else if (i == 1)
-                                    {
-                                        texture_coordinate_type = (VertexResource)buffer[0];
-                                        texcoord_size = buffer[1];
-                                    }
-                                    else if (i == 2) vector_size = buffer[1];
-                                    //but there more.
+                                    types[i] = (VertexResource)buffer[0];
+                                    sizes[i] = buffer[1];
                                 }
                                 break;
                         }
@@ -296,49 +295,41 @@ namespace Moonfish.Core.Model
              * Intent: process vertices by type and load additional bone information if present
              */
 
-
-
-            binary_reader.BaseStream.Position = vertex_resources[0].resource_offset;
-            byte[] coord_raw = binary_reader.ReadBytes(vertex_resources[0].resource_length);
-            binary_reader.BaseStream.Position = vertex_resources[1].resource_offset;
-            byte[] texcoord_raw = binary_reader.ReadBytes(vertex_resources[1].resource_length);
-            binary_reader.BaseStream.Position = vertex_resources[2].resource_offset;
-            byte[] vector_raw = binary_reader.ReadBytes(vertex_resources[2].resource_length);
-
+            int vertex_count = vertex_resources[0].resource_length / sizes[0];
+            this.Vertices = new StandardVertex[vertex_count];
+            this.VertexWeights = new VertexWeight[vertex_count];
+            foreach (var vertex_resource in vertex_resources)
             {
-                int vertex_count = coord_raw.Length / coord_size;
-                this.Vertices = new StandardVertex[vertex_count];
-                this.VertexWeights = new VertexWeight[vertex_count];
+                binary_reader.BaseStream.Position = vertex_resource.resource_offset;
+                var buffer = binary_reader.ReadBytes(vertex_resource.resource_length);
+                var stride = sizes[vertex_resource.data_size__or__first_index];
                 for (int i = 0; i < vertex_count; ++i)
                 {
-                    Vector3 position = Vector3.Zero;
-                    Vector2 texcoord = Vector2.Zero;
-
-                    switch (coordinate_type)
+                    switch (types[vertex_resource.data_size__or__first_index])
                     {
                         case VertexResource.coordinate_float:
-                            position = new Vector3(
-                                BitConverter.ToSingle(coord_raw, i * coord_size),
-                                BitConverter.ToSingle(coord_raw, (i * coord_size) + 4),
-                                BitConverter.ToSingle(coord_raw, (i * coord_size) + 8));
+                            this.Vertices[i].Position = new Vector3(
+                                BitConverter.ToSingle(buffer, i * stride),
+                                BitConverter.ToSingle(buffer, (i * stride) + 4),
+                                BitConverter.ToSingle(buffer, (i * stride) + 8));
                             break;
                         case VertexResource.coordinate_compressed:
-                            position = new Vector3(
-                                BitConverter.ToInt16(coord_raw, i * coord_size),
-                                BitConverter.ToInt16(coord_raw, (i * coord_size) + 2),
-                                BitConverter.ToInt16(coord_raw, (i * coord_size) + 4));
-                            position.X = Inflate(position.X, compression_ranges.X);
-                            position.Y = Inflate(position.Y, compression_ranges.Y);
-                            position.Z = Inflate(position.Z, compression_ranges.Z);
+                            this.Vertices[i].Position = new Vector3(
+                                BitConverter.ToInt16(buffer, i * stride),
+                                BitConverter.ToInt16(buffer, (i * stride) + 2),
+                                BitConverter.ToInt16(buffer, (i * stride) + 4));
+                            this.Vertices[i].Position.X = Inflate(this.Vertices[i].Position.X, compression_ranges.X);
+                            this.Vertices[i].Position.Y = Inflate(this.Vertices[i].Position.Y, compression_ranges.Y);
+                            this.Vertices[i].Position.Z = Inflate(this.Vertices[i].Position.Z, compression_ranges.Z);
                             break;
                         case VertexResource.coordinate_with_rigid_node:
-                            VertexWeights[i] = new VertexWeight(coord_raw[(i * coord_size) + 6]);
+                            VertexWeights[i] = new VertexWeight(buffer[(i * stride) + 6]);
                             goto case VertexResource.coordinate_compressed;
                         case VertexResource.coordinate_with_skinned_node:
-                            var bone0 = coord_raw[(i * coord_size) + 6];
-                            var bone1 = coord_raw[(i * coord_size) + 7];
-                            var weight0 = (float)coord_raw[(i * coord_size) + 9] / (float)byte.MaxValue;
-                            var weight1 = (float)coord_raw[(i * coord_size) + 10] / (float)byte.MaxValue;
+                            var bone0 = buffer[(i * stride) + 6];
+                            var bone1 = buffer[(i * stride) + 7];
+                            var weight0 = (float)buffer[(i * stride) + 9] / (float)byte.MaxValue;
+                            var weight1 = (float)buffer[(i * stride) + 10] / (float)byte.MaxValue;
                             VertexWeights[i] = new VertexWeight()
                             {
                                 Bone0 = bone0,
@@ -347,34 +338,27 @@ namespace Moonfish.Core.Model
                                 Bone1_weight = weight1
                             };
                             goto case VertexResource.coordinate_compressed;
-                        default: return false;
-                    }
-                    switch (texture_coordinate_type)
-                    {
                         case VertexResource.texture_coordinate_float:
-                            texcoord = new Vector2(
-                            BitConverter.ToSingle(texcoord_raw, i * texcoord_size),
-                            BitConverter.ToSingle(texcoord_raw, (i * texcoord_size) + 4));
+                            this.Vertices[i].TextureCoordinates = new Vector2(
+                            BitConverter.ToSingle(buffer, i * stride),
+                            BitConverter.ToSingle(buffer, (i * stride) + 4));
                             break;
                         case VertexResource.texture_coordinate_compressed:
-                            texcoord = new Vector2(
-                            BitConverter.ToInt16(texcoord_raw, i * texcoord_size),
-                            BitConverter.ToInt16(texcoord_raw, (i * texcoord_size) + 2));
-                            texcoord.X = Inflate(texcoord.X, compression_ranges.U);
-                            texcoord.Y = Inflate(texcoord.Y, compression_ranges.V);
+                            this.Vertices[i].TextureCoordinates = new Vector2(
+                            BitConverter.ToInt16(buffer, i * stride),
+                            BitConverter.ToInt16(buffer, (i * stride) + 2));
+                            this.Vertices[i].TextureCoordinates.X = Inflate(this.Vertices[i].TextureCoordinates.X, compression_ranges.U);
+                            this.Vertices[i].TextureCoordinates.Y = Inflate(this.Vertices[i].TextureCoordinates.Y, compression_ranges.V);
+                            break;
+                        case VertexResource.tangent_space_unit_vectors_compressed:
+                            this.Vertices[i].Normal = (Vector3)new Vector3t(BitConverter.ToUInt32(buffer, i * stride));
+                            this.Vertices[i].Tangent = (Vector3)new Vector3t(BitConverter.ToUInt32(buffer, (i * stride) + 4));
+                            this.Vertices[i].Bitangent = (Vector3)new Vector3t(BitConverter.ToUInt32(buffer, i * (stride) + 8));
                             break;
                     }
-                    this.Vertices[i] = new StandardVertex()
-                    {
-                        Position = position,
-                        TextureCoordinates = texcoord,
-                        Normal = (Vector3)new Vector3t(BitConverter.ToUInt32(vector_raw, i * vector_size)),
-                        Tangent = (Vector3)new Vector3t(BitConverter.ToUInt32(vector_raw, (i * vector_size) + 4)),
-                        Bitangent = (Vector3)new Vector3t(BitConverter.ToUInt32(vector_raw, i * (vector_size) + 8))
-                    };
                 }
             }
-
+            //stuff
             {
                 Range x = new Range(Vertices[0].Position.X, Vertices[0].Position.X);
                 Range y = new Range(Vertices[0].Position.Y, Vertices[0].Position.Y);
@@ -1263,7 +1247,10 @@ namespace Moonfish.Core.Model
             texture_coordinate_float = 0x18,
             texture_coordinate_compressed = 0x19,
 
-            unit_vector_compressed = 0x1B,
+            tangent_space_unit_vectors_compressed = 0x1B,
+
+            lightmap_uv_coordinate_one = 0x1F,
+            lightmap_uv_coordinate_two = 0x30,
         }
 
         public void Show()

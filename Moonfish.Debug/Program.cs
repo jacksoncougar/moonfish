@@ -23,9 +23,13 @@ namespace Moonfish.Debug
             //mesh.Show();
 
             var map = new MapStream(@"C:\Users\stem\Documents\headlong.map");
+            //var tag = map["mode", "warthog"].Export() as model; map.Close();
+            //Mesh m = new Mesh();
+            //m.Load(tag.Sections[3].Raw, tag.Sections[3].Resources, tag.Compression[0]);
+            //m.Show();
             var tag = map["sbsp", ""].Export() as binary_seperation_plane_structure; map.Close();
             Mesh m = new Mesh();
-            m.Load(tag.DetailObjects[0]);
+            m.Load(tag.DetailObjects[32]);
             m.Show();
             //Model model = new Model(tag);
             //using (var file = File.Create(@"D:\model_raw7.bin"))

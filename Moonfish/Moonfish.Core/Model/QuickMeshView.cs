@@ -16,13 +16,19 @@ namespace StarterKit
 {
     class QuickMeshView : GameWindow
     {
+        public enum Mode
+        {
+            water,
+            other,
+        }
+        Mode mode = Mode.other;
         Camera camera = new Camera();
 
-        private Moonfish.Core.Model.Mesh mesh;
+        private Moonfish.Core.Model.RenderMesh mesh;
         Vector4 light0_position = new Vector4(-2, -2, 2, 1);
         bool draw_strip = false;
 
-        public QuickMeshView(Moonfish.Core.Model.Mesh mesh)
+        public QuickMeshView(Moonfish.Core.Model.RenderMesh mesh)
             : base(400, 400, GraphicsMode.Default, "", GameWindowFlags.Default)
         {
             // TODO: Complete member initialization
@@ -60,9 +66,9 @@ namespace StarterKit
             GL.GenBuffers(2, buffers);
             GL.BindBuffer(BufferTarget.ArrayBuffer, buffers[0]);
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, buffers[1]);
-            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 14 * mesh.Vertices.Length), mesh.Vertices, BufferUsageHint.StaticDraw);
-            GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(sizeof(ushort)* mesh.Indices.Length), mesh.Indices, BufferUsageHint.StaticDraw);
-            
+            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 14 * mesh.VertexCoordinates.Length), mesh.VertexCoordinates, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(sizeof(ushort) * mesh.Indices.Length), mesh.Indices, BufferUsageHint.StaticDraw);
+
             string path = string.Empty;
             if (File.Exists(path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "gameball.BMP")))
             {
@@ -80,8 +86,8 @@ namespace StarterKit
                  (float)TextureEnvMode.Modulate);
                 bitmap.UnlockBits(bitmap_data);
             }
-            
-            
+
+
             GL.EnableClientState(ArrayCap.VertexArray);
             GL.VertexPointer(3, VertexPointerType.Float, 56, 20);
             GL.EnableClientState(ArrayCap.NormalArray);
@@ -130,7 +136,7 @@ namespace StarterKit
 
             //GL.MatrixMode(MatrixMode.Modelview);
             //GL.LoadMatrix(ref modelview);
-            Matrix4 modelview = Matrix4.LookAt(new Vector3(camera.Zoom, 0, 0), Vector3.Zero, Vector3.UnitZ);
+            Matrix4 modelview = Matrix4.LookAt(new Vector3(camera.Zoom, 0, 10), Vector3.Zero, Vector3.UnitZ);
             GL.MatrixMode(MatrixMode.Modelview);
             GL.LoadMatrix(ref modelview);
             GL.GetFloat(GetPName.ModelviewMatrix, out modelview);
@@ -147,44 +153,43 @@ namespace StarterKit
         {
             base.OnRenderFrame(e);
 
-           GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
             GL.PushMatrix();
-            GL.Translate(-mesh.Center);
+            //GL.Translate(-mesh.Center);
 
-            //GL.Scale(0.5f, 0.5f, 0.5f);
-            //var rot = Yaw;
-            //GL.Rotate(rot, Vector3.UnitZ);
-            //GL.Rotate(-rot, Vector3.UnitY);
+            //draw vertices
+            GL.Disable(EnableCap.Lighting);
+            GL.Disable(EnableCap.DepthTest);
+            GL.Color4(Color4.DarkBlue);
+            GL.DrawArrays(BeginMode.Points, 0, mesh.VertexCoordinates.Length);
 
-            if (draw_strip)
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
+            GL.Color4(Color4.LightCyan);
+            if (mesh.Primitives == null)
             {
-                GL.Disable(EnableCap.Lighting);
-                GL.Disable(EnableCap.DepthTest);
-                GL.Color4(Color4.White);
-                GL.Begin(BeginMode.Points);
-                GL.Vertex3(light0_position.Xyz);
-                GL.Vertex3(mesh.Center);
-                GL.End();
-                GL.Enable(EnableCap.Lighting);
-                GL.Enable(EnableCap.DepthTest);
-                GL.Enable(EnableCap.Lighting);
-                GL.Color4(Color4.LawnGreen);
-                GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill);
-                GL.DrawArrays(BeginMode.Points, 0, mesh.Vertices.Length);
-                foreach (var group in mesh.Groups)
+                GL.DrawElements(BeginMode.TriangleStrip, mesh.Indices.Length, DrawElementsType.UnsignedShort, 0);
+            }
+            else
+            {
+                foreach (var group in mesh.Primitives)
                 {
-                    GL.Color4(Color4.Wheat);
+                    GL.DrawElements(BeginMode.Triangles, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);
+                }
+            }
+
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
+            GL.Color4(Color4.DarkOrange);
+            if (mesh.Primitives == null)
+            {
+                GL.DrawElements(BeginMode.TriangleStrip, mesh.Indices.Length, DrawElementsType.UnsignedShort, 0);
+            }
+            else
+            {
+                foreach (var group in mesh.Primitives)
+                {
                     GL.DrawElements(mesh.PrimitiveType, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);
                 }
-                GL.Color4(new Color4(0x11, 0x11, 0x11, 0xFF));
-                GL.PolygonMode(MaterialFace.Front, PolygonMode.Line);
-                foreach (var group in mesh.Groups)
-                {
-                    GL.Color4(0x33,0x33,0x33,0xFF);
-                    GL.DrawElements(mesh.PrimitiveType, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);
-                }
-                GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill);
             }
             GL.PopMatrix();
             SwapBuffers();

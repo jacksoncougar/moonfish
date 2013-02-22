@@ -22,20 +22,22 @@ namespace Moonfish.Debug
             //mesh.ImportFromCollada(collada);
             //mesh.Show();
 
-            var map = new MapStream(@"C:\Users\stem\Documents\headlong.map");
-            //var tag = map["mode", "warthog"].Export() as model; map.Close();
-            //Mesh m = new Mesh();
+            var map = new MapStream(@"C:\Users\stem\Documents\shared.map");
+            var tag = map["mode", "warthog"].Export() as model; map.Close();
+            //RenderMesh m = new RenderMesh();
             //m.Load(tag.Sections[3].Raw, tag.Sections[3].Resources, tag.Compression[0]);
+            
+            //Entity.ExportForEntity(@"D:\warthog", "racoon", m);
             //m.Show();
-            var tag = map["sbsp", ""].Export() as binary_seperation_plane_structure; map.Close();
-            Mesh m = new Mesh();
-            m.Load(tag.DetailObjects[32]);
-            m.Show();
+            //var tag = map["sbsp", ""].Export() as binary_seperation_plane_structure; map.Close();
+            //RenderMesh m = new RenderMesh();
+            //m.Load(tag.Water[0]);
+            //m.Show();
             //Model model = new Model(tag);
-            //using (var file = File.Create(@"D:\model_raw7.bin"))
-            //{
-            //    file.Write(tag.DetailObjects[0].Raw.ToArray(), 0, tag.DetailObjects[0].Raw.Count);
-            //}
+            using (var file = File.Create(@"D:\tag_block_export.bin"))
+            {
+                tag.Serialize(file);
+            }
             //model.ExportToCOLLADA();
             //model.Show();
             return;

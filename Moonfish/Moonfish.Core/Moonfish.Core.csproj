@@ -55,10 +55,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Entity\Model.cs" />
     <Compile Include="GlobalStrings.cs" />
     <Compile Include="IResource.cs" />
     <Compile Include="Model\Camera.cs" />
     <Compile Include="Model\collada_schema_1_4.cs" />
+    <Compile Include="Model\Mesh.cs" />
     <Compile Include="Model\Model.cs" />
     <Compile Include="Model\ModelView.cs" />
     <Compile Include="Model\VertexWeight.cs" />
@@ -82,7 +84,7 @@
     <Compile Include="Model\WavefrontObject.cs" />
     <Compile Include="Padding.cs" />
     <Compile Include="Model\Adjacency .cs" />
-    <Compile Include="Model\Mesh.cs" />
+    <Compile Include="Model\RenderMesh.cs" />
     <Compile Include="Model\RadixSorter.cs" />
     <Compile Include="Model\Range.cs" />
     <Compile Include="Structures\TagBlockDefinition.cs" />

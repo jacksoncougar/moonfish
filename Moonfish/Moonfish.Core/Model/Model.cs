@@ -10,7 +10,7 @@ namespace Moonfish.Core.Model
     public class Model
     {
         public Region[] Regions;
-        public Mesh[] Mesh;
+        public RenderMesh[] Mesh;
         public DNode[] Nodes;
 
         public Model(model Tag)
@@ -25,10 +25,10 @@ namespace Moonfish.Core.Model
                 Regions[i].Permutations = Tag.Regions[i].Permutations.Select(y => y.GetDefinition<DPermutation>()).ToArray();
             }
 
-            Mesh = new Mesh[Tag.Sections.Count];
+            Mesh = new RenderMesh[Tag.Sections.Count];
             for (int i = 0; i < Mesh.Length; ++i)
             {
-                Mesh[i] = new Core.Model.Mesh();
+                Mesh[i] = new Core.Model.RenderMesh();
                 Mesh[i].Name = string.Format("{0}_{1}", "default", i);
                 Mesh[i].Load(Tag.Sections[i].Raw, Tag.Sections[i].Resources, Tag.Compression[0]);
             }

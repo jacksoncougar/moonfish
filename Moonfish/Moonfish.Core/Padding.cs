@@ -8,9 +8,9 @@ namespace Moonfish.Core
 {
     public static class Padding
     {
-        public static void Pad(this Stream stream, int alignment = 4)
+        public static int Pad(this Stream stream, int alignment = 4)
         {
-            stream.Seek(GetCount(stream.Position, alignment), SeekOrigin.Current);
+            return (int)stream.Seek(GetCount(stream.Position, alignment), SeekOrigin.Current);
         }
 
         public static int Pad(long address, int alignment = 4)

@@ -8,8 +8,12 @@ using System.Linq;
 
 namespace Moonfish.Core
 {
+    public interface ISerialize
+    {
+        void Serialize(Stream output, ref int next_address);
+    }
 
-    public class TagBlockList<TTagBlock> : FixedArray<TTagBlock>, IField
+    public class TagBlockList<TTagBlock> : FixedArray<TTagBlock>, IField, ISerialize
         where TTagBlock : TagBlock, IMeta, new()
     {
         void IField.SetFieldData(byte[] field_data, IStructure caller)
@@ -23,6 +27,35 @@ namespace Moonfish.Core
                 this.Add(child);
             }
         }
+
+        void ISerialize.Serialize(Stream output, ref int next_address)
+        {
+            if (Count > 0)
+            {
+                output.Position = next_address;
+                this.first_element_address_ = output.Pad(this[0].Alignment);
+                this.count_ = Count;
+
+                this.parent.SetField(this);
+
+                var item_size = this[0].Size;
+                var reserve_buffer = new byte[this.count_ * item_size];
+                output.Write(reserve_buffer, 0, reserve_buffer.Length);
+
+                next_address = first_element_address_ + this.count_ * item_size;
+                for (int i = 0; i < this.count_; i++)
+                {
+                    output.Position = this.first_element_address_ + i * item_size;
+                    this[i].Serialize(output, ref next_address);
+                }
+            }
+            else
+            {
+                this.first_element_address_ = 0;
+                this.count_ = 0;
+                return;
+            }
+        }
     }
 
     public abstract class TagBlock : IStructure, IMeta,
@@ -32,6 +65,7 @@ namespace Moonfish.Core
         const int DefaultAlignment = 4;
         protected readonly int size;
 
+        internal int Alignment { get { return alignment; } }
         protected readonly int alignment = DefaultAlignment;
         protected MemoryStream memory_;
         protected readonly List<TagBlockField> fixed_fields;
@@ -91,7 +125,46 @@ namespace Moonfish.Core
                 }
             }
         }
-        public void SetAddress(int addres) { this.this_pointer = addres; }
+
+
+        public void Serialize(Stream output)
+        {
+            var offset = (int)output.Position + this.size;
+            Serialize(output, ref offset);
+        }
+
+        internal void Serialize(Stream output, ref int next_address)
+        {
+            /* Intent: ensure that TagBlock address meets the alignment requirement, padding the stream if needed. 
+             * Write bytes to the stream to move the stream-pointer forward and 'reserve' this space for the TagBlock 
+             * */
+            var padding = Padding.GetCount(output.Position, this.alignment);    // Get padding count (if any) required to satisfy this TagBlock alignment
+            next_address += (int)padding;                                       // Increment next_address value by padded-increase
+            int destination_address =  output.Pad(this.alignment);              // Pad the current offset to TagBlocks alignment
+            this.SetAddress(destination_address);                               // Update this_pointer value for shits
+
+            output.Write(new byte[this.size], 0, this.size);                    // Reserve space in the stream
+
+            /* Intent: process all fields and write the field data to TagBlocks memory: finally write TagBlocks 
+             * memory to output stream
+             * */
+            foreach (var field in fixed_fields)
+            {
+                ISerialize serializable_field = field.Object as ISerialize;
+                if (serializable_field != null)
+                {
+                    serializable_field.Serialize(output, ref next_address);
+                }
+                (this as IStructure).SetField(field.Object);
+            }
+            /* Intent: move the output stream-pointer back to the reserved address:
+             * then copy the TagBlock bytes to the output streamb at that address
+             * */
+            output.Position = this.this_pointer;
+            output.Write(this.memory_.ToArray(), 0, (int)this.memory_.Length);
+        }
+        
+        public void SetAddress(int address) { this.this_pointer = address; }
 
         protected int tagblock_id = -1;
         internal int this_pointer = 0;

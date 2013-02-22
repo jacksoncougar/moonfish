@@ -58,8 +58,17 @@ namespace Moonfish.Core.Model.Wavefront
             return true;
         }
     }
+
     internal class WavefrontOBJ
     {
+        int TextureCoordCount;
+        int VertexCount;
+        int NormalCount;
+
+        float[] Vertices;
+        float[] TextureCoords;
+        float[] Normals[];
+
         internal struct Object
         {
             public int faces_start_index;

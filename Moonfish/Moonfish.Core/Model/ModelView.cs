@@ -136,14 +136,14 @@ namespace Moonfish.Core.Model
 
         private void RenderEdges(short p)
         {
-            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 14 * model.Mesh[p].Vertices.Length), model.Mesh[p].Vertices, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 14 * model.Mesh[p].VertexCoordinates.Length), model.Mesh[p].VertexCoordinates, BufferUsageHint.StaticDraw);
             GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(sizeof(ushort) * model.Mesh[p].Indices.Length), model.Mesh[p].Indices, BufferUsageHint.StaticDraw);
 
             GL.Color4(Color4.GreenYellow);
             GL.Disable(EnableCap.Lighting);
             GL.Disable(EnableCap.DepthTest);
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line); 
-            foreach (var group in model.Mesh[p].Groups)
+            foreach (var group in model.Mesh[p].Primitives)
             {
                 GL.DrawElements(BeginMode.TriangleStrip, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);
             }
@@ -211,12 +211,12 @@ namespace Moonfish.Core.Model
 
         private void RenderMesh(short p)
         {
-            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 14 * model.Mesh[p].Vertices.Length), model.Mesh[p].Vertices, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 14 * model.Mesh[p].VertexNormals.Length), model.Mesh[p].VertexNormals, BufferUsageHint.StaticDraw);
             GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(sizeof(ushort) * model.Mesh[p].Indices.Length), model.Mesh[p].Indices, BufferUsageHint.StaticDraw);
 
             GL.Color4(Color4.LawnGreen);
-            GL.DrawArrays(BeginMode.Points, 0, model.Mesh[p].Vertices.Length);
-            foreach (var group in model.Mesh[p].Groups)
+            GL.DrawArrays(BeginMode.Points, 0, model.Mesh[p].VertexNormals.Length);
+            foreach (var group in model.Mesh[p].Primitives)
             {
                 GL.Color4(Color4.RoyalBlue);
                 GL.DrawElements(BeginMode.TriangleStrip, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);

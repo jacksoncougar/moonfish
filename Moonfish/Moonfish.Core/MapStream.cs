@@ -63,10 +63,14 @@ namespace Moonfish.Core
             }
 
             this.Seek(16, SeekOrigin.Begin);
+            
 
             int indexAddress = bin.ReadInt32();
             int indexLength = bin.ReadInt32();
             int tagCacheLength = bin.ReadInt32();
+
+            if (BuildVersion == Version.PC_RETAIL)
+                this.Seek(12, SeekOrigin.Current);
 
             this.Seek(332, SeekOrigin.Current);
 
@@ -98,14 +102,29 @@ namespace Moonfish.Core
             Strings = Encoding.UTF8.GetString(bin.ReadBytes(stringTableLength - 1)).Split(char.MinValue);
 
 
-            //INDEX
+            //  INDEX
+            /*
+             *  Vista doesn't use memory addresses for the following address-values. (they are instead 0-based from the index-address)
+             *  
+             *  0x00    Address to Classes array
+             *  0x04    Classes array length
+             *  0x08    Address to Tags array
+             *  0x0C    Scenario        tag_id
+             *  0x10    Match-Globals   tag_id
+             *  0x14    ~
+             *  0x18    Tags array length
+             *  0xC0    'sgat'          four_cc
+             * 
+             *  */
             this.Seek(indexAddress, SeekOrigin.Begin);
             int tagClassTableVirtualAddress = bin.ReadInt32();
             this.IndexVirtualAddress = tagClassTableVirtualAddress - 32;
             this.Seek(4, SeekOrigin.Current);
             int tagDatumTableVirtualAddress = bin.ReadInt32();
+            var ScenarioID = bin.ReadTagID();
+            var GlobalsID = bin.ReadTagID();
             int tagDatumTableOffset = tagDatumTableVirtualAddress - tagClassTableVirtualAddress;
-            this.Seek(12, SeekOrigin.Current);
+            this.Seek(4, SeekOrigin.Current);
             int tagDatumCount = bin.ReadInt32();
 
             this.Seek(4 + tagDatumTableOffset, SeekOrigin.Current);
@@ -123,7 +142,11 @@ namespace Moonfish.Core
                 {
                     SecondaryMagic = Tags[0].VirtualAddress - (indexAddress + indexLength);
                 }
-                Tags[i].Path = Paths[i];
+
+                //Borky vista fix - broken paths are broken
+                if (Tags[i].VirtualAddress == 0) continue;
+                var tag = Tags[i];
+                Tags[i].Path = Paths[Tags[i].Identifier.SaltedIndex];
             }
 
             this.MemoryBlocks[1] = new MemoryMappedAddress()
@@ -136,66 +159,69 @@ namespace Moonfish.Core
             /* Intent: read the sbsp and lightmap address and lengths from the scenario tag 
              * and store them in the Tags array.
              */
-            this.Seek(Tags[3].VirtualAddress - SecondaryMagic + 528, SeekOrigin.Begin);
-            var count = bin.ReadInt32();
-            var address = bin.ReadInt32();
-            for (int i = 0; i < count; ++i)
+            if (BuildVersion == Version.XBOX_RETAIL)
             {
-                this.Seek(address - SecondaryMagic + i * 68, SeekOrigin.Begin);
-                var sbsp_offset = bin.ReadInt32();
-                var sbsp_length = bin.ReadInt32();
-                var sbsp_virtual_address = bin.ReadInt32();
-                if (i == 0)
+                this.Seek(Tags[ScenarioID.Index].VirtualAddress - SecondaryMagic + 528, SeekOrigin.Begin);
+                var count = bin.ReadInt32();
+                var address = bin.ReadInt32();
+                for (int i = 0; i < count; ++i)
                 {
-                    this.PrimaryMagic = sbsp_virtual_address - sbsp_offset;
-                    this.MemoryBlocks[0].Address = sbsp_virtual_address;
-                    this.MemoryBlocks[0].Magic = this.PrimaryMagic;
+                    this.Seek(address - SecondaryMagic + i * 68, SeekOrigin.Begin);
+                    var sbsp_offset = bin.ReadInt32();
+                    var sbsp_length = bin.ReadInt32();
+                    var sbsp_virtual_address = bin.ReadInt32();
+                    if (i == 0)
+                    {
+                        this.PrimaryMagic = sbsp_virtual_address - sbsp_offset;
+                        this.MemoryBlocks[0].Address = sbsp_virtual_address;
+                        this.MemoryBlocks[0].Magic = this.PrimaryMagic;
+                    }
+                    this.MemoryBlocks[0].Length += sbsp_length;
+
+                    Seek(8, SeekOrigin.Current);
+                    var sbsp_identifier = bin.ReadTagID();
+                    Seek(4, SeekOrigin.Current);
+                    var ltmp_identifier = bin.ReadTagID();
+
+                    var ltmp_offset = bin.ReadInt32();
+                    var ltmp_length = sbsp_offset + sbsp_length - ltmp_offset;
+
+                    Tags[sbsp_identifier.Index].VirtualAddress = sbsp_virtual_address;
+                    Tags[sbsp_identifier.Index].Length = sbsp_length - ltmp_length;
+
+                    if (ltmp_identifier != TagIdentifier.null_identifier)
+                    {
+                        Tags[ltmp_identifier.Index].VirtualAddress = sbsp_virtual_address + ltmp_offset;
+                        Tags[ltmp_identifier.Index].Length = ltmp_length;
+                    }
                 }
-                this.MemoryBlocks[0].Length += sbsp_length;
 
-                Seek(8, SeekOrigin.Current);
-                var sbsp_identifier = bin.ReadTagID();
-                Seek(4, SeekOrigin.Current);
-                var ltmp_identifier = bin.ReadTagID();
+                //UNICODE
+                this.Seek(Tags[GlobalsID.Index].VirtualAddress - SecondaryMagic + 400, SeekOrigin.Begin);
+                int unicodeCount = bin.ReadInt32();
+                int unicodeTableLength = bin.ReadInt32();
+                int unicodeIndexAddress = bin.ReadInt32();
+                int unicodeTableAddress = bin.ReadInt32();
 
-                var ltmp_offset = bin.ReadInt32();
-                var ltmp_length = sbsp_offset + sbsp_length - ltmp_offset;
+                Unicode = new UnicodeValueNamePair[unicodeCount];
 
-                Tags[sbsp_identifier.Index].VirtualAddress = sbsp_virtual_address;
-                Tags[sbsp_identifier.Index].Length = sbsp_length - ltmp_length;
+                StringID[] strRefs = new StringID[unicodeCount];
+                int[] strOffsets = new int[unicodeCount];
 
-                if (ltmp_identifier != TagIdentifier.null_identifier)
+                this.Seek(unicodeIndexAddress, SeekOrigin.Begin);
+                for (int i = 0; i < unicodeCount; i++)
                 {
-                    Tags[ltmp_identifier.Index].VirtualAddress = sbsp_virtual_address + ltmp_offset;
-                    Tags[ltmp_identifier.Index].Length = ltmp_length;
+                    strRefs[i] = (StringID)bin.ReadInt32();
+                    strOffsets[i] = bin.ReadInt32();
                 }
-            }
-            
-            //UNICODE
-            this.Seek(Tags[0].VirtualAddress - SecondaryMagic + 400, SeekOrigin.Begin);
-            int unicodeCount = bin.ReadInt32();
-            int unicodeTableLength = bin.ReadInt32();
-            int unicodeIndexAddress = bin.ReadInt32();
-            int unicodeTableAddress = bin.ReadInt32();
-
-            Unicode = new UnicodeValueNamePair[unicodeCount];
-
-            StringID[] strRefs = new StringID[unicodeCount];
-            int[] strOffsets = new int[unicodeCount];
-
-            this.Seek(unicodeIndexAddress, SeekOrigin.Begin);
-            for (int i = 0; i < unicodeCount; i++)
-            {
-                strRefs[i] = (StringID)bin.ReadInt32();
-                strOffsets[i] = bin.ReadInt32();
-            }
-            for (int i = 0; i < unicodeCount; i++)
-            {
-                this.Seek(unicodeTableAddress + strOffsets[i], SeekOrigin.Begin);
-                StringBuilder unicodeString = new StringBuilder(byte.MaxValue);
-                while (bin.PeekChar() != char.MinValue)
-                    unicodeString.Append(bin.ReadChar());
-                Unicode[i] = new UnicodeValueNamePair { Name = strRefs[i], Value = unicodeString.ToString() };
+                for (int i = 0; i < unicodeCount; i++)
+                {
+                    this.Seek(unicodeTableAddress + strOffsets[i], SeekOrigin.Begin);
+                    StringBuilder unicodeString = new StringBuilder(byte.MaxValue);
+                    while (bin.PeekChar() != char.MinValue)
+                        unicodeString.Append(bin.ReadChar());
+                    Unicode[i] = new UnicodeValueNamePair { Name = strRefs[i], Value = unicodeString.ToString() };
+                }
             }
         }
 
@@ -206,6 +232,15 @@ namespace Moonfish.Core
             {
                 if (current_tag.Type == (TagClass)tag_class && current_tag.Path.Contains(tag_name)) return this;
                 current_tag = FindFirst((TagClass)tag_class, tag_name);
+                return this;
+            }
+        }
+        public IMap this[TagIdentifier tag_id]
+        {
+            get
+            {
+                if (current_tag.Identifier == tag_id) return this;
+                current_tag = Tags[tag_id.Index];
                 return this;
             }
         }
@@ -246,7 +281,7 @@ namespace Moonfish.Core
             set
             {
                 // Is this value a memory_pointer? If so we need to convert it to a file_pointer:
-                if (value < 0)
+                if (value < 0 || value > this.Length)
                 {
 
                     base.Position = PointerToOffset((int)value);

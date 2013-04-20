@@ -14,6 +14,9 @@ namespace Moonfish.Debug
     {
         static void Main(string[] args)
         {
+            var form1 = new VistaViewer();
+            form1.ShowDialog();
+            return;
             Console.WriteLine("Moonfish Core:");
             Log.OnLog = new Log.LogMessageHandler(Console.WriteLine);
             

@@ -55,7 +55,7 @@ namespace StarterKit
             GL.Enable(EnableCap.CullFace);
             GL.CullFace(CullFaceMode.Back);
 
-            GL.Enable(EnableCap.Lighting);
+            //GL.Enable(EnableCap.Lighting);
             GL.Enable(EnableCap.Light0);
             float[] lightPose1 = { -4f, 7.0f, 6.0f, 1.0f };
             float[] lightColor1 = { 0.4f, 0.32f, 1f, 0.0f };
@@ -66,7 +66,7 @@ namespace StarterKit
             GL.GenBuffers(2, buffers);
             GL.BindBuffer(BufferTarget.ArrayBuffer, buffers[0]);
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, buffers[1]);
-            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 14 * mesh.Coordinates.Length), mesh.Coordinates, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 3 * mesh.Coordinates.Length), mesh.Coordinates, BufferUsageHint.StaticDraw);
             GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(sizeof(ushort) * mesh.Indices.Length), mesh.Indices, BufferUsageHint.StaticDraw);
 
             string path = string.Empty;
@@ -89,11 +89,11 @@ namespace StarterKit
 
 
             GL.EnableClientState(ArrayCap.VertexArray);
-            GL.VertexPointer(3, VertexPointerType.Float, 56, 20);
-            GL.EnableClientState(ArrayCap.NormalArray);
-            GL.NormalPointer(NormalPointerType.Float, 56, 8);
-            GL.TexCoordPointer(2, TexCoordPointerType.Float, 56, 0);
-            GL.EnableClientState(ArrayCap.TextureCoordArray);
+            GL.VertexPointer(3, VertexPointerType.Float, 12, 0);
+            //GL.EnableClientState(ArrayCap.NormalArray);
+            //GL.NormalPointer(NormalPointerType.Float, 56, 8);
+            //GL.TexCoordPointer(2, TexCoordPointerType.Float, 56, 0);
+            //GL.EnableClientState(ArrayCap.TextureCoordArray);
         }
 
         /// <summary>

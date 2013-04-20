@@ -138,6 +138,7 @@ namespace Moonfish.Core
         const short SaltValue = -7820;
         short index;
         public short Index { get { return index; } }
+        public short SaltedIndex { get { return (short)(salt_ - SaltValue); } }
         short salt_;
 
         public TagIdentifier(short index)

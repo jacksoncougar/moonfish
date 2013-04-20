@@ -261,7 +261,7 @@ namespace Moonfish.Core.Model
                                 for (int i = 0; i < count; i++)
                                 {
                                     byte[] buffer = binary_reader.ReadBytes(resource.data_size__or__first_index);
-                                    vertex_resource_types[i] = (VertexResource)buffer[0];
+                                    vertex_resource_types[i] = (VertexResource)((buffer[0] << 8) | buffer[1]);
                                     vertex_resource_sizes[i] = buffer[1];
                                 }
                                 break;
@@ -308,12 +308,14 @@ namespace Moonfish.Core.Model
                         break;
 
                     case VertexResource.texture_coordinate_compressed:
+                    case VertexResource.texture_coordinate_float_pc:
                     case VertexResource.texture_coordinate_float:                /* if the resource contains texture coordinates: 
                                                                                   * initialize the TextureCoordinates array */
                         this.TextureCoordinates = new Vector2[vertex_count];
                         break;
                     case VertexResource.tangent_space_unit_vectors_compressed:   /* if the resource contains tangent-space data: 
                                                                                   * initialize the TBN vector arrays */
+                    case VertexResource.tangent_space_unit_vectors_float:
                         this.Normals = new Vector3[vertex_count];
                         this.Tangents = new Vector3[vertex_count];
                         this.Bitangents = new Vector3[vertex_count];
@@ -364,6 +366,7 @@ namespace Moonfish.Core.Model
                             };
                             goto case VertexResource.coordinate_compressed;
                         case VertexResource.texture_coordinate_float:
+                        case VertexResource.texture_coordinate_float_pc:
                             this.TextureCoordinates[i] = new Vector2(
                             BitConverter.ToSingle(buffer, i * stride),
                             BitConverter.ToSingle(buffer, (i * stride) + 4));
@@ -379,6 +382,20 @@ namespace Moonfish.Core.Model
                             this.Normals[i] = (Vector3)new Vector3t(BitConverter.ToUInt32(buffer, i * stride));
                             this.Tangents[i] = (Vector3)new Vector3t(BitConverter.ToUInt32(buffer, (i * stride) + 4));
                             this.Bitangents[i] = (Vector3)new Vector3t(BitConverter.ToUInt32(buffer, i * (stride) + 8));
+                            break;
+                        case VertexResource.tangent_space_unit_vectors_float:
+                            this.Normals[i] = new Vector3(
+                                BitConverter.ToSingle(buffer, 0 + i * stride), 
+                                BitConverter.ToSingle(buffer, 4 + i * stride), 
+                                BitConverter.ToSingle(buffer, 8 + i * stride));
+                            this.Tangents[i] = new Vector3(
+                                BitConverter.ToSingle(buffer, 12 + i * stride),
+                                BitConverter.ToSingle(buffer, 16 + i * stride),
+                                BitConverter.ToSingle(buffer, 20 + i * stride));
+                            this.Bitangents[i] = new Vector3(
+                                BitConverter.ToSingle(buffer, 24 + i * stride),
+                                BitConverter.ToSingle(buffer, 28 + i * stride),
+                                BitConverter.ToSingle(buffer, 32 + i * stride));
                             break;
                     }
                 }
@@ -555,21 +572,23 @@ namespace Moonfish.Core.Model
             }
         }
 
-        enum VertexResource : byte
+        enum VertexResource : short
         {
-            none = 0x00,
-            coordinate_float = 0x01,
-            coordinate_compressed = 0x02,
-            coordinate_with_rigid_node = 0x04,
-            coordinate_with_skinned_node = 0x08,
+            none = 0x0000,
+            coordinate_float = 0x010C,            
+            coordinate_compressed = 0x0206,       
+            coordinate_with_rigid_node = 0x0408,
+            coordinate_with_skinned_node = 0x080C,
 
-            texture_coordinate_float = 0x18,
-            texture_coordinate_compressed = 0x19,
+            texture_coordinate_float_pc = 0x1708,
+            texture_coordinate_float = 0x1808,
+            texture_coordinate_compressed = 0x1904,
+            
+            tangent_space_unit_vectors_float = 0x1924,
+            tangent_space_unit_vectors_compressed = 0x1B0C,
 
-            tangent_space_unit_vectors_compressed = 0x1B,
-
-            lightmap_uv_coordinate_one = 0x1F,
-            lightmap_uv_coordinate_two = 0x30,
+            lightmap_uv_coordinate_one = 0x1F08,
+            lightmap_uv_coordinate_two = 0x3008,
         }
     }
 }

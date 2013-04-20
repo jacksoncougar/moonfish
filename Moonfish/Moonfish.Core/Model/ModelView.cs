@@ -96,11 +96,11 @@ namespace Moonfish.Core.Model
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, buffers[1]);
 
             GL.EnableClientState(ArrayCap.VertexArray);
-            GL.VertexPointer(3, VertexPointerType.Float, 56, 20);
-            GL.EnableClientState(ArrayCap.NormalArray);
-            GL.NormalPointer(NormalPointerType.Float, 56, 8);
-            GL.TexCoordPointer(2, TexCoordPointerType.Float, 56, 0);
-            GL.EnableClientState(ArrayCap.TextureCoordArray);
+            GL.VertexPointer(3, VertexPointerType.Float, 12, 0);
+            //GL.EnableClientState(ArrayCap.NormalArray);
+            //GL.NormalPointer(NormalPointerType.Float, 56, 8);
+            //GL.TexCoordPointer(2, TexCoordPointerType.Float, 56, 0);
+            //GL.EnableClientState(ArrayCap.TextureCoordArray);
         }
 
         protected override void OnUpdateFrame(FrameEventArgs e)
@@ -126,17 +126,17 @@ namespace Moonfish.Core.Model
             GL.Rotate(30, Vector3.UnitZ);
             foreach (var region in model.Regions)
             {
-                RenderMesh(region.Permutations[0].HighLOD);
+                //RenderMesh(region.Permutations[0].HighLOD);
                 RenderEdges(region.Permutations[0].HighLOD);
             }
-            RenderNodes();
+            //RenderNodes();
             GL.PopMatrix();
             SwapBuffers();
         }
 
         private void RenderEdges(short p)
         {
-            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 14 * model.Mesh[p].Coordinates.Length), model.Mesh[p].Coordinates, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 3 * model.Mesh[p].Coordinates.Length), model.Mesh[p].Coordinates, BufferUsageHint.StaticDraw);
             GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(sizeof(ushort) * model.Mesh[p].Indices.Length), model.Mesh[p].Indices, BufferUsageHint.StaticDraw);
 
             GL.Color4(Color4.GreenYellow);
@@ -211,7 +211,7 @@ namespace Moonfish.Core.Model
 
         private void RenderMesh(short p)
         {
-            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 14 * model.Mesh[p].Normals.Length), model.Mesh[p].Normals, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 3 * model.Mesh[p].Normals.Length), model.Mesh[p].Coordinates, BufferUsageHint.StaticDraw);
             GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(sizeof(ushort) * model.Mesh[p].Indices.Length), model.Mesh[p].Indices, BufferUsageHint.StaticDraw);
 
             GL.Color4(Color4.LawnGreen);

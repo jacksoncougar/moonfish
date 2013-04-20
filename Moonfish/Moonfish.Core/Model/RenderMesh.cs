@@ -25,16 +25,16 @@ namespace Moonfish.Core.Model
         internal DCompressionRanges GenerateCompressionData()
         {
             DCompressionRanges compression = new DCompressionRanges();
-            compression.X = new Range(VertexCoordinates[0].X, VertexCoordinates[0].X);
-            compression.Y = new Range(VertexCoordinates[0].Y, VertexCoordinates[0].Y);
-            compression.Z = new Range(VertexCoordinates[0].Z, VertexCoordinates[0].Z);
+            compression.X = new Range(Coordinates[0].X, Coordinates[0].X);
+            compression.Y = new Range(Coordinates[0].Y, Coordinates[0].Y);
+            compression.Z = new Range(Coordinates[0].Z, Coordinates[0].Z);
             compression.U = new Range(TextureCoordinates[0].X, TextureCoordinates[0].X);
             compression.V = new Range(TextureCoordinates[0].Y, TextureCoordinates[0].Y);
-            for (int i = 0; i < VertexCoordinates.Length; ++i)
+            for (int i = 0; i < Coordinates.Length; ++i)
             {
-                compression.X = Range.Include(compression.X, VertexCoordinates[i].X);
-                compression.Y = Range.Include(compression.Y, VertexCoordinates[i].Y);
-                compression.Z = Range.Include(compression.Z, VertexCoordinates[i].Z);
+                compression.X = Range.Include(compression.X, Coordinates[i].X);
+                compression.Y = Range.Include(compression.Y, Coordinates[i].Y);
+                compression.Z = Range.Include(compression.Z, Coordinates[i].Z);
                 compression.U = Range.Include(compression.U, TextureCoordinates[i].X);
                 compression.V = Range.Include(compression.V, TextureCoordinates[i].Y);
             }
@@ -45,7 +45,7 @@ namespace Moonfish.Core.Model
         {
             DSection section = new DSection();
             section.TriangleCount = this.GetTriangleCount();
-            section.VertexCount = (ushort)this.VertexCoordinates.Length;
+            section.VertexCount = (ushort)this.Coordinates.Length;
             return section;
         }
         
@@ -232,9 +232,9 @@ namespace Moonfish.Core.Model
                     strips.Add(new TriangleStrip() { MaterialID = (ushort)material.Value, Indices = stripper.GenerateTriangleStrip() });
                 }
             }
-            this.VertexCoordinates = vertex_coordiantes.ToArray();
+            this.Coordinates = vertex_coordiantes.ToArray();
             this.TextureCoordinates = texture_coordinates.ToArray();
-            this.VertexNormals = vertex_normals.ToArray();
+            this.Normals = vertex_normals.ToArray();
 
             this.Primitives = new MeshPrimitive[strips.Count];
 
@@ -279,10 +279,10 @@ namespace Moonfish.Core.Model
             var mesh = geometry.Item as Collada141.mesh;
             if (mesh == null) return;
             var float_array = mesh.source[0].Item as Collada141.float_array;
-            this.VertexCoordinates = new Vector3[float_array.Values.Length / 3];
-            for (int i = 0; i < VertexCoordinates.Length; i++)
+            this.Coordinates = new Vector3[float_array.Values.Length / 3];
+            for (int i = 0; i < Coordinates.Length; i++)
             {
-                VertexCoordinates[i] = new Vector3(
+                Coordinates[i] = new Vector3(
                         (float)float_array.Values[i * 3 + 0],
                         (float)float_array.Values[i * 3 + 1],
                         (float)float_array.Values[i * 3 + 2]);
@@ -321,7 +321,7 @@ namespace Moonfish.Core.Model
             using (StreamWriter writer = File.CreateText(filename))
             {
                 writer.WriteLine("# moonfish 2013 : Wavefront OBJ");
-                foreach (var vertex_coordinate in VertexCoordinates)
+                foreach (var vertex_coordinate in Coordinates)
                 {
                     writer.WriteLine("v {0} {1} {2}", vertex_coordinate.X,
                         vertex_coordinate.Y, vertex_coordinate.Z);
@@ -331,7 +331,7 @@ namespace Moonfish.Core.Model
                     writer.WriteLine("vt {0} {1}", texture_coordinate.X.ToString("#0.00000"),
                         texture_coordinate.Y.ToString("#0.00000"));
                 }
-                foreach (var normal in VertexNormals)
+                foreach (var normal in Normals)
                 {
                     writer.WriteLine("vn {0} {1} {2}", normal.X.ToString("#0.00000"),
                         normal.Y.ToString("#0.00000"), normal.Z.ToString("#0.00000"));
@@ -362,7 +362,7 @@ namespace Moonfish.Core.Model
             string base_id = string.Format("{0}-{1}", this.Name, "mesh");
             var source = new Collada141.source[]
             {
-                CreateVector3Source(this.VertexCoordinates, base_id, "positions"),
+                CreateVector3Source(this.Coordinates, base_id, "positions"),
                 //CreateVector3Source(this.Vertices.Select(x=>x.Normal), base_id, "normals"),
             };
             var vertices = new Collada141.vertices()
@@ -523,9 +523,9 @@ namespace Moonfish.Core.Model
             bin.Write(VERTEX_RESOURCE_HEADER_DATA); // laziness TODO: write out proper headers here to allow for other types
 
             bin.WriteFourCC("rsrc");
-            resource[3] = new DResource(56, 0, this.VertexCoordinates.Length * sizeof(ushort) * 3, (int)(bin.BaseStream.Position - resource_data_start_offset), true);
+            resource[3] = new DResource(56, 0, this.Coordinates.Length * sizeof(ushort) * 3, (int)(bin.BaseStream.Position - resource_data_start_offset), true);
             {
-                foreach (var vertex in this.VertexCoordinates)
+                foreach (var vertex in this.Coordinates)
                 {
                     bin.Write(Deflate(input_compression.X, vertex.X));
                     bin.Write(Deflate(input_compression.Y, vertex.Y));
@@ -543,12 +543,12 @@ namespace Moonfish.Core.Model
                 }
             }
             bin.WriteFourCC("rsrc");
-            resource[5] = new DResource(56, 2, this.VertexNormals.Length * sizeof(uint) * 3, (int)(bin.BaseStream.Position - resource_data_start_offset), true);
-            for(int i = 0; i < this.VertexNormals.Length;++i)
+            resource[5] = new DResource(56, 2, this.Normals.Length * sizeof(uint) * 3, (int)(bin.BaseStream.Position - resource_data_start_offset), true);
+            for(int i = 0; i < this.Normals.Length;++i)
             {
-                bin.Write((uint)(Vector3t)VertexNormals[i]);    //cast to vector3t is destructive...
-                bin.Write((uint)(Vector3t)VertexTangents[i]);
-                bin.Write((uint)(Vector3t)VertexBitangents[i]);
+                bin.Write((uint)(Vector3t)Normals[i]);    //cast to vector3t is destructive...
+                bin.Write((uint)(Vector3t)Tangents[i]);
+                bin.Write((uint)(Vector3t)Bitangents[i]);
             }
             bin.WriteFourCC("rsrc");
             resource[6] = new DResource(100, 1, 1, (int)(bin.BaseStream.Position - resource_data_start_offset));

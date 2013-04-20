@@ -1,9 +1,10 @@
 ﻿using OpenTK;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
-
+//FUCK THIS RIGHT HERE.
 namespace Moonfish.Core.Model.Wavefront
 {
     internal static class WavefrontExtensions
@@ -67,7 +68,140 @@ namespace Moonfish.Core.Model.Wavefront
 
         float[] Vertices;
         float[] TextureCoords;
-        float[] Normals[];
+        float[] Normals;
+
+        public bool Load(string filename)
+        { 
+            Log.Info(string.Format("Loading file {0} into memory buffer", filename));
+            byte[] buffer = null;
+            using (var file = File.OpenRead(filename))
+            {
+                buffer = new byte[file.Length];
+                file.Read(buffer, 0, buffer.Length);
+            } if (buffer == null)
+            {
+                Log.Error("Failed to create memory buffer");
+                return false;
+            }
+            MemoryStream stream = new MemoryStream(buffer);
+            StreamReader reader = new StreamReader(stream);
+
+            Object[] objects = new Object[1] { new Object() { faces_start_index = 0 } };
+            List<Face> faces = new List<Face>();
+            List<Vector3> vertex_coords = new List<Vector3>();
+            List<Vector2> texture_coords = new List<Vector2>();
+            List<Vector3> normals = new List<Vector3>();
+
+            Dictionary<string, int> material_names = new Dictionary<string, int>();
+            material_names.Add("default", 0);
+            int selected_material = 0;
+
+            bool default_object = true;
+            bool default_object_processed = false;
+            bool has_normals = false;
+            bool has_texcoords = false;
+
+            Log.Info("Begin parsing Wavefront Object data from buffer");
+            while (!reader.EndOfStream)
+            {
+                string line = reader.ReadLine().Trim();
+                if (line.StartsWith("# "))
+                {
+                    Log.Info(line);
+                    continue;
+                }
+                if (line.StartsWith("o "))
+                {
+                    // if this is the first object token, use the default object
+                    if (default_object) default_object = false;
+                    else
+                    {
+                        Log.Warn(@"Support for multiple wavefront objects per mesh not implemented.
+                                   Meshes can only accept a single wavefront object. Continuing, but only using first object!");
+                        if (!default_object_processed)
+                        {
+                            objects[0].faces_count = faces.Count;
+                            default_object_processed = true;
+                        }
+                    }
+                }
+                else if (line.StartsWith("v "))
+                {
+                    Vector3 vertex;
+                    if (!WavefrontExtensions.TryParseVector3(out vertex, line)) return false;
+                    vertex_coords.Add(vertex);
+                }
+                else if (line.StartsWith("vt "))
+                {
+                    has_texcoords = true;
+                    Vector2 texcoord;
+                    if (!WavefrontExtensions.TryParseVector2(out texcoord, line)) return false;
+                    texture_coords.Add(texcoord);
+                }
+                else if (line.StartsWith("vn "))
+                {
+                    has_normals = true;
+                    Vector3 normal;
+                    if (!WavefrontExtensions.TryParseVector3(out normal, line)) return false;
+                    normals.Add(normal);
+                }
+                else if (line.StartsWith("usemtl "))
+                {
+                    string name = line.Replace("usemtl ", "").Trim();
+                    if (!material_names.ContainsKey(name)) material_names.Add(name, material_names.Count);
+                    selected_material = material_names[name];
+                }
+                else if (line.StartsWith("f "))
+                {
+                    WavefrontOBJ.Face face;
+                    if (!WavefrontOBJ.Face.TryParse(line, out face))
+                    {
+                        Log.Error(string.Format("Error parsing line: {0}", line));
+                        return false;
+                    }
+                    else
+                    {
+                        face.material_id = selected_material;
+                        faces.Add(face);
+                    }
+                }
+                else Log.Warn(string.Format("Unsupported format found while parsing line: {0}", line));
+            }
+            if (!default_object_processed)
+            {
+                objects[0].faces_count = faces.Count;
+                default_object_processed = true;
+            }
+            Log.Info("Partial success... finished parsing Wavefront Object data from buffer");
+
+            List<Triangle> triangle_list = new List<Triangle>(faces.Count);
+            List<Vector3> vertex_coordiantes = new List<Vector3>(vertex_coords.Count);
+            List<Vector2> texture_coordinates = new List<Vector2>(vertex_coords.Count);
+            List<Vector3> vertex_normals = new List<Vector3>(vertex_coords.Count);
+            List<string> tokens = new List<string>();
+
+            for (int i = 0; i < faces.Count; i++)
+            {
+                Triangle triangle = new Triangle() { MaterialID = faces[i].material_id };
+                for (int token = 0; token < 3; ++token)
+                {
+                    if (!tokens.Contains(faces[i].GetToken(token)))
+                    {
+                        triangle.Vertex1 = (ushort)vertex_coordiantes.Count;
+                        tokens.Add(faces[i].GetToken(0));
+                        vertex_coordiantes.Add(vertex_coords[faces[i].vertex_indices[token] - 1]);
+                        texture_coordinates.Add(faces[i].has_texcoord ? texture_coords[faces[i].texcoord_indices[token] - 1] : Vector2.Zero);
+                        vertex_normals.Add(faces[i].has_normals ? normals[faces[i].normal_indices[token] - 1] : Vector3.Zero);
+                    }
+                    else
+                    {
+                        triangle.Vertex1 = (ushort)tokens.IndexOf(faces[i].GetToken(token));
+                    }
+                }
+                triangle_list.Add(triangle);
+            }
+            return false;
+        }
 
         internal struct Object
         {

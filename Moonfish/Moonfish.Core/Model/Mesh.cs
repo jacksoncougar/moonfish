@@ -27,12 +27,12 @@ namespace Moonfish.Core.Model
 
         public ushort[] Indices;
 
-        public Vector3[] VertexCoordinates;
+        public Vector3[] Coordinates;
         public Vector2[] TextureCoordinates;
-        public Vector3[] VertexNormals;
+        public Vector3[] Normals;
 
-        public Vector3[] VertexTangents;
-        public Vector3[] VertexBitangents;
+        public Vector3[] Tangents;
+        public Vector3[] Bitangents;
 
         public VertexWeight[] VertexWeights;
         public byte[] Nodes;
@@ -44,9 +44,9 @@ namespace Moonfish.Core.Model
         /// <returns></returns>
         protected bool GenerateNormals()
         {
-            if (Indices == null || VertexCoordinates == null) return false;
+            if (Indices == null || Coordinates == null) return false;
 
-            VertexNormals = new Vector3[VertexCoordinates.Length];
+            Normals = new Vector3[Coordinates.Length];
 
             int ref0, ref1, ref2;
             bool winding = false;
@@ -66,23 +66,23 @@ namespace Moonfish.Core.Model
                 }
                 winding = !winding;
                 if (ref0 == ref1 || ref1 == ref2 || ref0 == ref2) continue;
-                Vector3 vec1 = VertexCoordinates[ref2] - VertexCoordinates[ref0];
-                Vector3 vec2 = VertexCoordinates[ref1] - VertexCoordinates[ref0];
+                Vector3 vec1 = Coordinates[ref2] - Coordinates[ref0];
+                Vector3 vec2 = Coordinates[ref1] - Coordinates[ref0];
                 Vector3 normal = Vector3.Cross(vec1, vec2);
-                VertexNormals[ref0] += normal;
-                VertexNormals[ref1] += normal;
-                VertexNormals[ref2] += normal;
+                Normals[ref0] += normal;
+                Normals[ref1] += normal;
+                Normals[ref2] += normal;
             }
-            for (int i = 0; i < VertexNormals.Length; i++)
+            for (int i = 0; i < Normals.Length; i++)
             {
-                VertexNormals[i].Normalize();
+                Normals[i].Normalize();
             }
             return true;
         }
         protected bool GenerateTexCoords()
         {
-            if (Indices == null || VertexCoordinates == null) return false;
-            TextureCoordinates = new Vector2[VertexCoordinates.Length];
+            if (Indices == null || Coordinates == null) return false;
+            TextureCoordinates = new Vector2[Coordinates.Length];
             int ref0, ref1, ref2;
             for (int i = 0; i < Indices.Length - 2; ++i)
             {
@@ -91,11 +91,11 @@ namespace Moonfish.Core.Model
                 ref2 = Indices[i + 2];
                 if (ref0 == ref1 || ref1 == ref2 || ref0 == ref2) continue;
                 if (TextureCoordinates[ref0] == Vector2.Zero)
-                    TextureCoordinates[ref0] = VertexCoordinates[ref0].Xy;
+                    TextureCoordinates[ref0] = Coordinates[ref0].Xy;
                 if (TextureCoordinates[ref1] == Vector2.Zero)
-                    TextureCoordinates[ref1] = VertexCoordinates[ref1].Xy;
+                    TextureCoordinates[ref1] = Coordinates[ref1].Xy;
                 if (TextureCoordinates[ref2] == Vector2.Zero)
-                    TextureCoordinates[ref2] = VertexCoordinates[ref2].Xy;
+                    TextureCoordinates[ref2] = Coordinates[ref2].Xy;
             }
             for (int i = 0; i < TextureCoordinates.Length; i++)
             {
@@ -105,9 +105,9 @@ namespace Moonfish.Core.Model
         }
         protected bool GenerateTangentSpaceVectors()
         {
-            if (this.VertexCoordinates == null || this.Indices == null) return false;
-            Vector3[] tangents = new Vector3[this.VertexCoordinates.Length * 2];
-            int bitan = this.VertexCoordinates.Length;
+            if (this.Coordinates == null || this.Indices == null) return false;
+            Vector3[] tangents = new Vector3[this.Coordinates.Length * 2];
+            int bitan = this.Coordinates.Length;
             for (int i = 0; i < this.Indices.Length - 2; i++)
             {
                 if (IsDegenerate(this.Indices[i], this.Indices[i + 1], this.Indices[i + 2]))
@@ -118,9 +118,9 @@ namespace Moonfish.Core.Model
                 ushort i1 = this.Indices[i + 0];
                 ushort i2 = this.Indices[i + 1];
                 ushort i3 = this.Indices[i + 2];
-                Vector3 v1 = this.VertexCoordinates[i1];
-                Vector3 v2 = this.VertexCoordinates[i2];
-                Vector3 v3 = this.VertexCoordinates[i3];
+                Vector3 v1 = this.Coordinates[i1];
+                Vector3 v2 = this.Coordinates[i2];
+                Vector3 v3 = this.Coordinates[i3];
                 Vector2 t1 = this.TextureCoordinates[i1];
                 Vector2 t2 = this.TextureCoordinates[i2];
                 Vector2 t3 = this.TextureCoordinates[i3];
@@ -155,15 +155,15 @@ namespace Moonfish.Core.Model
                 tangents[bitan + i2] += tdir;
                 tangents[bitan + i3] += tdir;
             }
-            for (int i = 0; i < this.VertexCoordinates.Length; i++)
+            for (int i = 0; i < this.Coordinates.Length; i++)
             {
                 Vector3 t = tangents[i];
-                Vector3 n = this.VertexNormals[i];
-                this.VertexTangents[i] = (t - n * Vector3.Dot(n, t));
-                this.VertexTangents[i].Normalize();
+                Vector3 n = this.Normals[i];
+                this.Tangents[i] = (t - n * Vector3.Dot(n, t));
+                this.Tangents[i].Normalize();
                 bool lefthanded = Vector3.Dot(Vector3.Cross(n, t), tangents[bitan + i]) < 0.0F ? true : false;
-                this.VertexBitangents[i] = Vector3.Cross(n, this.VertexTangents[i]);
-                if (lefthanded) this.VertexBitangents[i] *= -1;
+                this.Bitangents[i] = Vector3.Cross(n, this.Tangents[i]);
+                if (lefthanded) this.Bitangents[i] *= -1;
             }
             return true;
         }
@@ -283,11 +283,11 @@ namespace Moonfish.Core.Model
             /* Intent: intialize all fields to empty arrays to prevent the unintialized value compiler error,
              * switch through all the vertex_resources we are going to process and create an array to hold all 
              * the members we will be reading. */
-            this.VertexCoordinates = new Vector3[0];
+            this.Coordinates = new Vector3[0];
             this.TextureCoordinates = new Vector2[0];
-            this.VertexNormals = new Vector3[0];
-            this.VertexTangents = new Vector3[0];
-            this.VertexBitangents = new Vector3[0];
+            this.Normals = new Vector3[0];
+            this.Tangents = new Vector3[0];
+            this.Bitangents = new Vector3[0];
             this.VertexWeights = new VertexWeight[0];
 
             foreach (var vertex_resource in vertex_resources)                   /* Switch through all the loaded 
@@ -304,7 +304,7 @@ namespace Moonfish.Core.Model
                     case VertexResource.coordinate_float:
                     case VertexResource.coordinate_compressed:                  /* if the resource contains vertex coordinates: 
                                                                                  * initialize the VertexCoordinates array */
-                        this.VertexCoordinates = new Vector3[vertex_count];
+                        this.Coordinates = new Vector3[vertex_count];
                         break;
 
                     case VertexResource.texture_coordinate_compressed:
@@ -314,9 +314,9 @@ namespace Moonfish.Core.Model
                         break;
                     case VertexResource.tangent_space_unit_vectors_compressed:   /* if the resource contains tangent-space data: 
                                                                                   * initialize the TBN vector arrays */
-                        this.VertexNormals = new Vector3[vertex_count];
-                        this.VertexTangents = new Vector3[vertex_count];
-                        this.VertexBitangents = new Vector3[vertex_count];
+                        this.Normals = new Vector3[vertex_count];
+                        this.Tangents = new Vector3[vertex_count];
+                        this.Bitangents = new Vector3[vertex_count];
                         break;
                 }
             }
@@ -333,19 +333,19 @@ namespace Moonfish.Core.Model
                     switch (vertex_resource_types[vertex_resource.data_size__or__first_index])
                     {
                         case VertexResource.coordinate_float:
-                            this.VertexCoordinates[i] = new Vector3(
+                            this.Coordinates[i] = new Vector3(
                                 BitConverter.ToSingle(buffer, i * stride),
                                 BitConverter.ToSingle(buffer, (i * stride) + 4),
                                 BitConverter.ToSingle(buffer, (i * stride) + 8));
                             break;
                         case VertexResource.coordinate_compressed:
-                            this.VertexCoordinates[i] = new Vector3(
+                            this.Coordinates[i] = new Vector3(
                                 BitConverter.ToInt16(buffer, i * stride),
                                 BitConverter.ToInt16(buffer, (i * stride) + 2),
                                 BitConverter.ToInt16(buffer, (i * stride) + 4));
-                            this.VertexCoordinates[i].X = Inflate(this.VertexCoordinates[i].X, compression_ranges.X);
-                            this.VertexCoordinates[i].Y = Inflate(this.VertexCoordinates[i].Y, compression_ranges.Y);
-                            this.VertexCoordinates[i].Z = Inflate(this.VertexCoordinates[i].Z, compression_ranges.Z);
+                            this.Coordinates[i].X = Inflate(this.Coordinates[i].X, compression_ranges.X);
+                            this.Coordinates[i].Y = Inflate(this.Coordinates[i].Y, compression_ranges.Y);
+                            this.Coordinates[i].Z = Inflate(this.Coordinates[i].Z, compression_ranges.Z);
                             break;
                         case VertexResource.coordinate_with_rigid_node:
                             VertexWeights[i] = new VertexWeight(buffer[(i * stride) + 6]);
@@ -376,9 +376,9 @@ namespace Moonfish.Core.Model
                             this.TextureCoordinates[i].Y = Inflate(this.TextureCoordinates[i].Y, compression_ranges.V);
                             break;
                         case VertexResource.tangent_space_unit_vectors_compressed:
-                            this.VertexNormals[i] = (Vector3)new Vector3t(BitConverter.ToUInt32(buffer, i * stride));
-                            this.VertexTangents[i] = (Vector3)new Vector3t(BitConverter.ToUInt32(buffer, (i * stride) + 4));
-                            this.VertexBitangents[i] = (Vector3)new Vector3t(BitConverter.ToUInt32(buffer, i * (stride) + 8));
+                            this.Normals[i] = (Vector3)new Vector3t(BitConverter.ToUInt32(buffer, i * stride));
+                            this.Tangents[i] = (Vector3)new Vector3t(BitConverter.ToUInt32(buffer, (i * stride) + 4));
+                            this.Bitangents[i] = (Vector3)new Vector3t(BitConverter.ToUInt32(buffer, i * (stride) + 8));
                             break;
                     }
                 }

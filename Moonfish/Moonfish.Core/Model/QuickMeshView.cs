@@ -66,7 +66,7 @@ namespace StarterKit
             GL.GenBuffers(2, buffers);
             GL.BindBuffer(BufferTarget.ArrayBuffer, buffers[0]);
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, buffers[1]);
-            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 14 * mesh.VertexCoordinates.Length), mesh.VertexCoordinates, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 14 * mesh.Coordinates.Length), mesh.Coordinates, BufferUsageHint.StaticDraw);
             GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(sizeof(ushort) * mesh.Indices.Length), mesh.Indices, BufferUsageHint.StaticDraw);
 
             string path = string.Empty;
@@ -162,7 +162,7 @@ namespace StarterKit
             GL.Disable(EnableCap.Lighting);
             GL.Disable(EnableCap.DepthTest);
             GL.Color4(Color4.DarkBlue);
-            GL.DrawArrays(BeginMode.Points, 0, mesh.VertexCoordinates.Length);
+            GL.DrawArrays(BeginMode.Points, 0, mesh.Coordinates.Length);
 
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
             GL.Color4(Color4.LightCyan);

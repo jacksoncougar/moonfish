@@ -66,6 +66,10 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Moonfish.WavefrontLoader\Moonfish.WavefrontLoader.csproj">
+      <Project>{4510eb54-8070-459d-89d3-ac8e4896980d}</Project>
+      <Name>Moonfish.WavefrontLoader</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Moonfish\Moonfish.Core\Moonfish.Core.csproj">
       <Project>{7f6e5d63-d24c-40b1-a8ae-76cd0d4279a8}</Project>
       <Name>Moonfish.Core</Name>

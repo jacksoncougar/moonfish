@@ -12,6 +12,7 @@ namespace Moonfish.Core
     /// </summary>
     public class MapStream : FileStream, IMap
     {
+        public readonly Version BuildVersion;
         /// <summary>
         /// name of this cache (is not used in anything, just compiled into the header)
         /// </summary>
@@ -48,6 +49,18 @@ namespace Moonfish.Core
             this.Seek(0, SeekOrigin.Begin);
             if (bin.ReadTagClass() != (TagClass)"head") 
                 throw new InvalidDataException("Not a halo-map file");
+
+            this.Seek(36, SeekOrigin.Begin);
+            var version = bin.ReadInt32();
+            switch (version)
+            {
+                case 0:
+                    BuildVersion = Version.XBOX_RETAIL;
+                    break;
+                case -1:
+                    BuildVersion = Version.PC_RETAIL;
+                    break;
+            }
 
             this.Seek(16, SeekOrigin.Begin);
 
@@ -379,8 +392,35 @@ namespace Moonfish.Core
         }
     }
 
+    public enum Version
+    {
+        XBOX_RETAIL,
+        PC_RETAIL,
+    }
+
+    /* * *
+     * Unicode Handling
+     * ----------------
+     * Store and index pointing to a table which maps to a UTF8 string for each language.
+     * For each Unicode there will be a memory usage of 4 + ( language_count * 4 ) used for indexers
+     * 
+     * [StringID] -> [index] : 0 -> [Language Switch Mappings] -> [English] -> UTF8 String
+     * 
+     * Using a dictionary to map the string_id value to an index in the language map
+     * using a custom struct to hold to language mappings
+     * using a list to hold the UTF8 strings
+     * 
+     * * */
+
+    struct UnicodeItem
+    {
+        int[] _indices;
+        int[] Indices { get { return _indices; } }
+    }
+
     public struct UnicodeValueNamePair
     {
+        //depre.//
         public StringID Name;
         public string Value;
 

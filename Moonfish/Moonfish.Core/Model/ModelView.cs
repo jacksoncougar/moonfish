@@ -136,7 +136,7 @@ namespace Moonfish.Core.Model
 
         private void RenderEdges(short p)
         {
-            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 14 * model.Mesh[p].VertexCoordinates.Length), model.Mesh[p].VertexCoordinates, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 14 * model.Mesh[p].Coordinates.Length), model.Mesh[p].Coordinates, BufferUsageHint.StaticDraw);
             GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(sizeof(ushort) * model.Mesh[p].Indices.Length), model.Mesh[p].Indices, BufferUsageHint.StaticDraw);
 
             GL.Color4(Color4.GreenYellow);
@@ -211,11 +211,11 @@ namespace Moonfish.Core.Model
 
         private void RenderMesh(short p)
         {
-            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 14 * model.Mesh[p].VertexNormals.Length), model.Mesh[p].VertexNormals, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 14 * model.Mesh[p].Normals.Length), model.Mesh[p].Normals, BufferUsageHint.StaticDraw);
             GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(sizeof(ushort) * model.Mesh[p].Indices.Length), model.Mesh[p].Indices, BufferUsageHint.StaticDraw);
 
             GL.Color4(Color4.LawnGreen);
-            GL.DrawArrays(BeginMode.Points, 0, model.Mesh[p].VertexNormals.Length);
+            GL.DrawArrays(BeginMode.Points, 0, model.Mesh[p].Normals.Length);
             foreach (var group in model.Mesh[p].Primitives)
             {
                 GL.Color4(Color4.RoyalBlue);

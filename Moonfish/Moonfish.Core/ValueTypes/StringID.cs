@@ -40,7 +40,7 @@ public class StringID : IField, IEquatable<StringID>
     private void Copy(StringID copy)
     {
         parent = copy.parent;
-        nullbyte = copy.nullbyte; if (nullbyte != byte.MinValue) throw new Exception("Bad String ID. \nBad. bad. bad! >:D");
+        nullbyte = copy.nullbyte; if (nullbyte != byte.MinValue) //throw new Exception("Bad String ID. \nBad. bad. bad! >:D");
         index = copy.index;
         length = copy.length;
     }
@@ -65,7 +65,7 @@ public class StringID : IField, IEquatable<StringID>
     public StringID(short index, sbyte length, byte debug = byte.MinValue)
     {
         this.parent = default(IStructure);
-        this.nullbyte = debug; if (nullbyte != byte.MinValue) throw new Exception("Bad String ID. \nBad. bad. bad! >:D");
+        this.nullbyte = debug; if (nullbyte != byte.MinValue) //throw new Exception("Bad String ID. \nBad. bad. bad! >:D");
         this.index = index;
         this.length = length;
     }

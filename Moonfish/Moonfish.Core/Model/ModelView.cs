@@ -4,6 +4,7 @@ using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
@@ -13,19 +14,13 @@ namespace Moonfish.Core.Model
     class ModelView : GameWindow
     {
         private Model model;
+        ViewCamera camera = new ViewCamera();
+        Point last_mouse = new Point();
+
         private bool DragMode = false;
-        private float Yaw { get { return yaw; } set { yaw = value > 360 ? value - 360 : value < 0 ? 360 - value : value; } }
-        private float Pitch { get { return pitch; } set { pitch = value > 89.0f ? 89.0f : value < -89.0 ? -89.0f : value; } }
-        private float Zoom { get { return zoom; } set { zoom = value > zoom_max ? zoom_max : value < zoom_min ? zoom_min : value; } }
-        private Vector2 mouse_delta = Vector2.Zero;
-        private Vector3 forward = Vector3.UnitY;
-        float yaw = default(float);
-        float pitch = default(float);
-        float zoom = zoom_min;
-        static float zoom_step = 0.125f;
-        static float zoom_min = 0.01f;
-        static float zoom_max = 65.00f;
+        bool reset_mouse = true;
         static float unit_length = 0.01f;
+
 
         public ModelView(Model model)
         {
@@ -36,38 +31,68 @@ namespace Moonfish.Core.Model
             this.Mouse.ButtonUp += Mouse_ButtonUp;
             this.Mouse.Move += Mouse_Move;
             this.Mouse.WheelChanged += Mouse_WheelChanged;
+
+            camera.LookAt(Vector3.Zero);
         }
 
         void Mouse_WheelChanged(object sender, OpenTK.Input.MouseWheelEventArgs e)
         {
-            Zoom -= e.DeltaPrecise * zoom_step;
+            camera.Telescope(e.DeltaPrecise * 0.25f);
         }
 
         void Mouse_Move(object sender, OpenTK.Input.MouseMoveEventArgs e)
         {
+            // if we are in 'drag-mode'
             if (DragMode)
             {
-                Yaw += e.XDelta;
-                Pitch += e.YDelta;
+                //  store the mouse delta
+                //var delta = Point.Subtract(e.Position, (Size)last_mouse);
+
+                //  return the mouse to the previous position
+                if (reset_mouse)
+                {
+                    Cursor.Position = last_mouse;
+                    reset_mouse = false;
+                    return;
+                }
+                RotateCamera(e.XDelta, e.YDelta);
+                reset_mouse = true;
             }
+            // endif 'drag-modoe'
+        }
+
+        private void RotateCamera(float xdelta, float ydelta)
+        {
+            camera.RotateY(xdelta);
+            camera.RotateX(ydelta);
         }
 
         void Mouse_ButtonUp(object sender, OpenTK.Input.MouseButtonEventArgs e)
         {
-            if (e.Button == OpenTK.Input.MouseButton.Middle) DragMode = false;
+            if (e.Button == OpenTK.Input.MouseButton.Middle)
+            {
+                DragMode = false;
+                Cursor.Position = last_mouse;
+                Cursor.Show();
+            }
         }
 
         void Mouse_ButtonDown(object sender, OpenTK.Input.MouseButtonEventArgs e)
         {
-            if (e.Button == OpenTK.Input.MouseButton.Middle) DragMode = true;
+            if (e.Button == OpenTK.Input.MouseButton.Middle)
+            {
+                DragMode = true;
+                last_mouse = Cursor.Position;
+                Cursor.Hide();
+            }
         }
 
         protected override void OnResize(EventArgs e)
         {
-            base.OnResize(e); 
+            base.OnResize(e);
             GL.Viewport(ClientRectangle.X, ClientRectangle.Y, ClientRectangle.Width, ClientRectangle.Height);
 
-            Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView((float)Math.PI / 4, Width / (float)Height, zoom_min, zoom_max);
+            Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView((float)Math.PI / 4, Width / (float)Height, 1.01f, 1000.0f);
             GL.MatrixMode(MatrixMode.Projection);
             GL.LoadMatrix(ref projection);
         }
@@ -106,15 +131,9 @@ namespace Moonfish.Core.Model
         protected override void OnUpdateFrame(FrameEventArgs e)
         {
             base.OnUpdateFrame(e);
-
-            Matrix4 modelview = Matrix4.LookAt(new Vector3(forward * zoom), model.Center * 10f, Vector3.UnitZ);
+            camera.Update(); 
             GL.MatrixMode(MatrixMode.Modelview);
-            GL.LoadMatrix(ref modelview);
-            GL.Scale(Vector3.One * 10);
-            GL.GetFloat(GetPName.ModelviewMatrix, out modelview);
-            GL.Rotate(Pitch, modelview.Column0.Xyz);
-            forward = modelview.Column2.Xyz;
-            GL.Rotate(Yaw, Vector3.UnitZ);
+            GL.LoadMatrix(ref camera.ViewMatrix);
         }
 
         protected override void OnRenderFrame(FrameEventArgs e)
@@ -136,21 +155,24 @@ namespace Moonfish.Core.Model
 
         private void RenderEdges(short p)
         {
+
             GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(sizeof(float) * 3 * model.Mesh[p].Coordinates.Length), model.Mesh[p].Coordinates, BufferUsageHint.StaticDraw);
             GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(sizeof(ushort) * model.Mesh[p].Indices.Length), model.Mesh[p].Indices, BufferUsageHint.StaticDraw);
 
-            GL.Color4(Color4.GreenYellow);
+
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
+            GL.Disable(EnableCap.CullFace);
             GL.Disable(EnableCap.Lighting);
-            GL.Disable(EnableCap.DepthTest);
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line); 
+            GL.Color4(Color4.GreenYellow);
             foreach (var group in model.Mesh[p].Primitives)
             {
                 GL.DrawElements(BeginMode.TriangleStrip, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);
             }
-
-            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
-            GL.Enable(EnableCap.Lighting);
-            GL.Enable(EnableCap.DepthTest);
+            GL.Color4(Color4.Blue);
+            GL.PointSize(10f);
+            GL.Begin(BeginMode.Points);
+            GL.Vertex3(0, 0, 0);
+            GL.End();
         }
 
         private void RenderNodes()
@@ -222,5 +244,117 @@ namespace Moonfish.Core.Model
                 GL.DrawElements(BeginMode.TriangleStrip, group.strip_length, DrawElementsType.UnsignedShort, group.strip_start * 2);
             }
         }
+    }
+
+    class ViewCamera
+    {
+        ViewConstraintSettings contraints = new ViewConstraintSettings();
+        Vector3 position = new Vector3(0, 0, 4);
+        Vector3 origin = new Vector3(0, 0, 0);
+        float x_rotation;
+        float y_rotation;
+        float z_rotation;
+        bool view_matrix_is_dirty = true;
+
+        public Matrix4 ViewMatrix = Matrix4.Identity;
+
+        public bool Update()
+        {
+            if (view_matrix_is_dirty)
+            {
+                if (UpdateViewMatrix() == false) return false;      //  exit on failure
+            }
+            return true;
+        }
+
+        public bool UpdateViewMatrix()
+        {
+            ViewMatrix = Matrix4.Identity;
+            ViewMatrix *= Matrix4.CreateFromAxisAngle(Vector3.UnitY, MathHelper.DegreesToRadians(-y_rotation));
+            ViewMatrix *= Matrix4.CreateFromAxisAngle(Vector3.UnitX, MathHelper.DegreesToRadians(-x_rotation));
+            ViewMatrix *= Matrix4.CreateTranslation(-position);
+            //ViewMatrix *= Matrix4.LookAt(position, origin, Vector3.UnitY);
+
+            //
+            return true;
+        }
+
+        public void LookAt(Vector3 location)
+        {
+            origin = location; 
+            view_matrix_is_dirty = true;
+        }
+
+        public void RotateX(float degrees)
+        {
+            var rotation = UpdateRotation(contraints.Wrap_X, contraints.X_Range, x_rotation, degrees);
+            if (rotation == x_rotation) return; // if nothing has changed save ourselves from updating needlessly,
+            view_matrix_is_dirty = true;        // otherwise the rotation value has changed and should be reculcuted
+            x_rotation = rotation;
+        }
+
+        public void RotateY(float degrees)
+        {
+            var rotation = UpdateRotation(contraints.Wrap_Y, contraints.Y_Range, y_rotation, degrees);
+            if (rotation == y_rotation) return; // if nothing has changed save ourselves from updating needlessly,
+            view_matrix_is_dirty = true;        // otherwise the rotation value has changed and should be reculcuted
+            y_rotation = rotation;
+        }
+
+        public void RotateZ(float degrees)
+        {
+            var rotation = UpdateRotation(contraints.Wrap_Z, contraints.Z_Range, z_rotation, degrees);
+            if (rotation == z_rotation) return; // if nothing has changed save ourselves from updating needlessly,
+            view_matrix_is_dirty = true;        // otherwise the rotation value has changed and should be reculcuted
+        }
+
+        private float UpdateRotation(bool allow_wrap, Range rotation_contraints, float rotation_field, float rotation_degrees)
+        {
+            var rotation_sum = rotation_field + rotation_degrees;
+            if (allow_wrap)
+                return Range.Wrap(rotation_contraints, rotation_sum);
+            else
+                return Range.Truncate(rotation_contraints, rotation_sum);
+        }
+
+        internal void Telescope(float translation)
+        {
+            var Forward = ViewMatrix.Column2.Xyz;
+            this.position.Z += translation;
+            view_matrix_is_dirty = true;
+        }
+    }
+
+    class ViewConstraintSettings
+    {
+        /* * *
+         * Axis alignment
+         * 
+         *         y z
+         *      x__|/ 
+         * 
+         * Looking at the screen x is horizontal, y is vertical and z is depth.
+         * * */
+        bool _wrap_x_rotation = true;      //  allow excess values to wrap back into the range?
+        bool _x_rotation_enabled = true;    //  allow rotation at all?
+        float _x_rotation_min = 0.0f;     //  looking striaght down
+        float _x_rotation_max = 360.0f;      //  looking staight up
+
+        bool _wrap_y_rotation = true;      //  allow excess values to wrap back into the range?
+        bool _y_rotation_enabled = true;    //  allow rotation at all?
+        float _y_rotation_min = 0.0f;       //  looking straight forward
+        float _y_rotation_max = 360.0f;     //  looking straight forward (1 circular rotation)
+
+        bool _wrap_z_rotation = false;      //  allow excess values to wrap back into the range?
+        bool _z_rotation_enabled = false;   //  allow rotation at all?
+        float _z_rotation_min = 0.0f;       //  looking level
+        float _z_rotation_max = 0.0f;       //  looking level
+
+        public Range X_Range { get { return new Range(_x_rotation_min, _x_rotation_max); } }
+        public Range Y_Range { get { return new Range(_y_rotation_min, _y_rotation_max); } }
+        public Range Z_Range { get { return new Range(_z_rotation_min, _z_rotation_max); } }
+        public bool Wrap_X { get { return _wrap_x_rotation; } }
+        public bool Wrap_Y { get { return _wrap_y_rotation; } }
+        public bool Wrap_Z { get { return _wrap_z_rotation; } }
     }
 }

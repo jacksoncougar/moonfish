@@ -58,5 +58,20 @@ namespace Moonfish.Core.Model
         {
             return (range.min + range.max) * 0.5f;
         }
+
+        /// <summary>
+        /// Maps values outside of the range back into the range using the magnitude of the 
+        /// value from the closest range-boundary (min or max)
+        /// [min₁..max₁][min₂..max₂] .. [minₓ..maxₓ]
+        /// </summary>
+        /// <param name="range"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        internal static float Wrap(Range range, float value)
+        {
+            var wrapped_value = value < range.min ? range.max + (value - range.min) % (range.max - range.min):
+                value > range.max ? range.min + (value - range.min) % (range.max - range.min) : value;
+            return wrapped_value;
+        }
     }
 }

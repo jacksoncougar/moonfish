@@ -50,18 +50,19 @@ namespace Moonfish.Core
             if (bin.ReadTagClass() != (TagClass)"head") 
                 throw new InvalidDataException("Not a halo-map file");
 
-            this.Seek(36, SeekOrigin.Begin);
-            var version = bin.ReadInt32();
-            switch (version)
-            {
-                case 0:
-                    BuildVersion = Version.XBOX_RETAIL;
-                    break;
-                case -1:
-                    BuildVersion = Version.PC_RETAIL;
-                    break;
-            }
-
+            //this.Seek(36, SeekOrigin.Begin);
+            //var version = bin.ReadInt32();
+            //switch (version)
+            //{
+            //    case 0:
+            //        BuildVersion = Version.XBOX_RETAIL;
+            //        break;
+            //    case -1:
+            //        BuildVersion = Version.PC_RETAIL;
+            //        break;
+            //    default:
+            //}
+            BuildVersion = Version.PC_RETAIL;
             this.Seek(16, SeekOrigin.Begin);
             
 
@@ -144,9 +145,9 @@ namespace Moonfish.Core
                 }
 
                 //Borky vista fix - broken paths are broken
-                if (Tags[i].VirtualAddress == 0) continue;
-                var tag = Tags[i];
-                Tags[i].Path = Paths[Tags[i].Identifier.SaltedIndex];
+                //if (Tags[i].VirtualAddress == 0) continue;
+                //var tag = Tags[i];
+                //Tags[i].Path = Paths[Tags[i].Identifier.SaltedIndex];
             }
 
             this.MemoryBlocks[1] = new MemoryMappedAddress()
